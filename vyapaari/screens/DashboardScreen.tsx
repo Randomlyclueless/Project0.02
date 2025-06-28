@@ -1,13 +1,9 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ScrollView,
-  Dimensions,
-} from "react-native";
-import { LineChart } from "react-native-chart-kit";
+import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
+import { VictoryChart, VictoryLine, VictoryAxis, VictoryTheme } from "victory"; // Import from 'victory'
+import FloatingVyomButton from "../components/FloatingVyomButton";
+import LanguageSelector from "../components/LanguageSelector";
+import { useTranslation } from "react-i18next";
 
 const transactions = [
   {
@@ -37,6 +33,7 @@ const transactions = [
 ];
 
 const DashboardScreen = () => {
+  const { t } = useTranslation();
   const today = "2025-06-19";
 
   const totalToday = transactions
@@ -49,68 +46,97 @@ const DashboardScreen = () => {
 
   const pendingPayments = transactions.filter((t) => t.status === "pending");
 
+  // Data for the VictoryLine chart
+  const chartData = [
+    { x: "Mon", y: 100 },
+    { x: "Tue", y: 200 },
+    { x: "Wed", y: 150 },
+    { x: "Thu", y: 300 },
+    { x: "Fri", y: 250 },
+    { x: "Sat", y: 400 },
+    { x: "Sun", y: 350 },
+  ];
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>👋 Hi Vyapaari</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <LanguageSelector />
 
-      <View style={styles.cardContainer}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Today’s Income</Text>
-          <Text style={styles.cardValue}>₹{totalToday}</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Total Income</Text>
-          <Text style={styles.cardValue}>₹{totalIncome}</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pending Payments</Text>
-          <Text style={styles.cardValue}>{pendingPayments.length}</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Total Transactions</Text>
-          <Text style={styles.cardValue}>{transactions.length}</Text>
-        </View>
-      </View>
+        <Text style={styles.header}>👋 {t("greeting")}</Text>
 
-      <Text style={styles.sectionTitle}>📈 Earnings Overview</Text>
-      <LineChart
-        data={{
-          labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-          datasets: [{ data: [100, 200, 150, 300, 250, 400, 350] }],
-        }}
-        width={Dimensions.get("window").width - 40}
-        height={220}
-        yAxisSuffix="₹"
-        chartConfig={{
-          backgroundColor: "#ffffff",
-          backgroundGradientFrom: "#ffffff",
-          backgroundGradientTo: "#ffffff",
-          decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(39, 174, 96, ${opacity})`,
-          labelColor: () => "#333",
-          propsForDots: {
-            r: "5",
-            strokeWidth: "2",
-            stroke: "#27ae60",
-          },
-        }}
-        style={styles.chart}
-      />
-
-      <Text style={styles.sectionTitle}>🧾 Recent Transactions</Text>
-      <FlatList
-        data={transactions.slice(0, 5)}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.transactionItem}>
-            <Text style={styles.transactionText}>
-              • {item.customer} paid ₹{item.amount} ({item.status})
-            </Text>
-            <Text style={styles.transactionTime}>{item.time}</Text>
+        <View style={styles.cardContainer}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t("todays_income")}</Text>
+            <Text style={styles.cardValue}>₹{totalToday}</Text>
           </View>
-        )}
-      />
-    </ScrollView>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t("total_income")}</Text>
+            <Text style={styles.cardValue}>₹{totalIncome}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t("pending_payments")}</Text>
+            <Text style={styles.cardValue}>{pendingPayments.length}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t("total_transactions")}</Text>
+            <Text style={styles.cardValue}>{transactions.length}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>📈 {t("earnings_overview")}</Text>
+        <VictoryChart
+          width={Dimensions.get("window").width - 40}
+          height={220}
+          theme={VictoryTheme.material}
+          padding={{ top: 20, bottom: 40, left: 50, right: 20 }}
+        >
+          <VictoryAxis
+            style={{
+              axis: { stroke: "#333" },
+              tickLabels: { fill: "#333", fontSize: 12 },
+            }}
+          />
+          <VictoryAxis
+            dependentAxis
+            style={{
+              axis: { stroke: "#333" },
+              tickLabels: { fill: "#333", fontSize: 12 },
+              ticks: { stroke: "#333" },
+            }}
+            tickFormat={(t) => `₹${t}`}
+          />
+          <VictoryLine
+            data={chartData}
+            style={{
+              data: {
+                stroke: "#27ae60",
+                strokeWidth: 2,
+              },
+            }}
+            interpolation="monotoneX"
+            animate={{
+              duration: 1000,
+              onLoad: { duration: 500 },
+            }}
+          />
+        </VictoryChart>
+
+        <Text style={styles.sectionTitle}>🧾 {t("recent_transactions")}</Text>
+
+        <View>
+          {transactions.slice(0, 5).map((item) => (
+            <View key={item.id} style={styles.transactionItem}>
+              <Text style={styles.transactionText}>
+                • {item.customer} {t("paid")} ₹{item.amount} ({t(item.status)})
+              </Text>
+              <Text style={styles.transactionTime}>{item.time}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      <FloatingVyomButton />
+    </View>
   );
 };
 

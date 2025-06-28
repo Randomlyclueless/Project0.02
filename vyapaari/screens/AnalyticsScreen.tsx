@@ -4,18 +4,21 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Pressable, // ✅ Changed from TouchableOpacity
   Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { LineChart, PieChart } from "react-native-chart-kit";
 import { db } from "../services/firebase";
 import { ref, onValue } from "firebase/database";
-import { LineChart, PieChart } from "react-native-chart-kit";
+import { RootStackParamList } from "../App";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function AnalyticsScreen() {
-  const navigation = useNavigation();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -51,11 +54,13 @@ export default function AnalyticsScreen() {
     ? ((cashRevenue / totalRevenue) * 100).toFixed(1)
     : "0";
 
-  const last7Days = [...Array(7)].map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return d.toDateString();
-  }).reverse();
+  const last7Days = [...Array(7)]
+    .map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toDateString();
+    })
+    .reverse();
 
   const dailySums = last7Days.map((day) =>
     transactions
@@ -71,7 +76,8 @@ export default function AnalyticsScreen() {
     const hour = new Date(t.timestamp).getHours();
     hourMap[hour] = (hourMap[hour] || 0) + 1;
   });
-  const peakHour = Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+  const peakHour =
+    Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
 
   const repeatBuyers = new Set();
   const buyerMap: Record<string, number> = {};
@@ -86,9 +92,9 @@ export default function AnalyticsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
+      <Pressable onPress={() => navigation.goBack()}>
         <Text style={styles.back}>⬅️ Back</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       <Text style={styles.header}>📊 Analytics Dashboard</Text>
 
@@ -136,14 +142,18 @@ export default function AnalyticsScreen() {
         {frauds.length > 0 ? (
           frauds.map((f, i) => (
             <View key={i} style={styles.fraudItem}>
-              <Text>• {f.vendor} - ₹{f.amount}</Text>
+              <Text>
+                • {f.vendor} - ₹{f.amount}
+              </Text>
               <Text style={styles.fraudTime}>
                 {new Date(f.timestamp).toLocaleTimeString()}
               </Text>
             </View>
           ))
         ) : (
-          <Text style={styles.noFraud}>✅ No unverified QR payments today.</Text>
+          <Text style={styles.noFraud}>
+            ✅ No unverified QR payments today.
+          </Text>
         )}
       </View>
 
@@ -191,12 +201,26 @@ export default function AnalyticsScreen() {
         absolute
       />
 
-      <TouchableOpacity
-        style={styles.btn}
+      <Pressable
+        style={({ pressed }) => [
+          styles.btn,
+          pressed && styles.btnPressed, // ✅ Add pressed state styling
+        ]}
         onPress={() => navigation.navigate("LoanReport")}
       >
         <Text style={styles.btnText}>📤 View Loan Report</Text>
-      </TouchableOpacity>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.btn,
+          { backgroundColor: "#6a1b9a", marginTop: 10 },
+          pressed && styles.btnPressed, // ✅ Add pressed state styling
+        ]}
+        onPress={() => navigation.navigate("Vyom Assistant")}
+      >
+        <Text style={styles.btnText}>🤖 Ask Vyom Assistant</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -235,6 +259,10 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 25,
     borderRadius: 10,
+  },
+  btnPressed: {
+    opacity: 0.7, // ✅ Add pressed state styling
+    transform: [{ scale: 0.98 }],
   },
   btnText: {
     color: "#fff",

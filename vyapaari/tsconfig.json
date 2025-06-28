@@ -4,7 +4,7 @@
     "module": "esnext",
     "jsx": "react-native",
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowJs": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,6 +16,7 @@
       "react-native"
     ]
   },
+  "include": ["env.d.ts", "**/*.ts", "**/*.tsx"],  // ✅ Added this
   "exclude": [
     "node_modules",
     "babel.config.js",

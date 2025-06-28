@@ -7,29 +7,43 @@ import { enableScreens } from "react-native-screens";
 
 // Screens
 import DashboardScreen from "./screens/DashboardScreen";
-import TransactionsScreen from "./screens/TransactionsScreen";
 import QRPaymentScreen from "./screens/QRPaymentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import VyomScreen from "./screens/VyomScreen";
 import ClientsScreen from "./screens/ClientsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
-import LoanReportScreen from "./screens/LoanReportScreen"; // ✅ Add this
+import LoanReportScreen from "./screens/LoanReportScreen";
 
 enableScreens();
 
-const Drawer = createDrawerNavigator();
-const Stack = createNativeStackNavigator();
+// ✅ Define the types for stack and drawer
+export type RootStackParamList = {
+  RootDrawer: undefined;
+  LoanReport: undefined;
+  "Vyom Assistant": undefined; // ✅ Added this to stack params
+};
 
-// ✅ Your original drawer
+export type DrawerParamList = {
+  "Hii Vyapaari": undefined;
+  Transactions: undefined;
+  "QR Code": undefined;
+  Analytics: undefined;
+  "Vyom Assistant": undefined;
+  "Client Book": undefined;
+  Settings: undefined;
+};
+
+// ✅ Navigators
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Drawer = createDrawerNavigator<DrawerParamList>();
+
 function DrawerNavigator() {
   return (
     <Drawer.Navigator
-      {...({ id: "RootDrawer" } as any)}
       initialRouteName="Hii Vyapaari"
       screenOptions={{ headerShown: true }}
     >
       <Drawer.Screen name="Hii Vyapaari" component={DashboardScreen} />
-      <Drawer.Screen name="Transactions" component={TransactionsScreen} />
       <Drawer.Screen name="QR Code" component={QRPaymentScreen} />
       <Drawer.Screen name="Analytics" component={AnalyticsScreen} />
       <Drawer.Screen name="Vyom Assistant" component={VyomScreen} />
@@ -39,13 +53,14 @@ function DrawerNavigator() {
   );
 }
 
-// ✅ Wrap drawer with a root stack to allow internal screen navigation (like to LoanReport)
+// ✅ Main App
 export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="RootDrawer" component={DrawerNavigator} />
         <Stack.Screen name="LoanReport" component={LoanReportScreen} />
+        <Stack.Screen name="Vyom Assistant" component={VyomScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
