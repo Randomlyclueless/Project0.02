@@ -3,10 +3,11 @@ import "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { enableScreens } from "react-native-screens";
+import Toast from "react-native-toast-message";
 
-// Screens
+import AuthScreens from "./screens/AuthScreens";
 import DashboardScreen from "./screens/DashboardScreen";
+import TransactionsScreen from "./screens/TransactionsScreen";
 import QRPaymentScreen from "./screens/QRPaymentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import VyomScreen from "./screens/VyomScreen";
@@ -14,36 +15,14 @@ import ClientsScreen from "./screens/ClientsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import LoanReportScreen from "./screens/LoanReportScreen";
 
-enableScreens();
-
-// ✅ Define the types for stack and drawer
-export type RootStackParamList = {
-  RootDrawer: undefined;
-  LoanReport: undefined;
-  "Vyom Assistant": undefined; // ✅ Added this to stack params
-};
-
-export type DrawerParamList = {
-  "Hii Vyapaari": undefined;
-  Transactions: undefined;
-  "QR Code": undefined;
-  Analytics: undefined;
-  "Vyom Assistant": undefined;
-  "Client Book": undefined;
-  Settings: undefined;
-};
-
-// ✅ Navigators
-const Stack = createNativeStackNavigator<RootStackParamList>();
-const Drawer = createDrawerNavigator<DrawerParamList>();
+const Stack = createNativeStackNavigator();
+const Drawer = createDrawerNavigator();
 
 function DrawerNavigator() {
   return (
-    <Drawer.Navigator
-      initialRouteName="Hii Vyapaari"
-      screenOptions={{ headerShown: true }}
-    >
+    <Drawer.Navigator initialRouteName="Hii Vyapaari" screenOptions={{ headerShown: true }}>
       <Drawer.Screen name="Hii Vyapaari" component={DashboardScreen} />
+      <Drawer.Screen name="Transactions" component={TransactionsScreen} />
       <Drawer.Screen name="QR Code" component={QRPaymentScreen} />
       <Drawer.Screen name="Analytics" component={AnalyticsScreen} />
       <Drawer.Screen name="Vyom Assistant" component={VyomScreen} />
@@ -53,15 +32,17 @@ function DrawerNavigator() {
   );
 }
 
-// ✅ Main App
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="RootDrawer" component={DrawerNavigator} />
-        <Stack.Screen name="LoanReport" component={LoanReportScreen} />
-        <Stack.Screen name="Vyom Assistant" component={VyomScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Auth" component={AuthScreens} />
+          <Stack.Screen name="MainApp" component={DrawerNavigator} />
+          <Stack.Screen name="LoanReport" component={LoanReportScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+      <Toast />
+    </>
   );
 }
