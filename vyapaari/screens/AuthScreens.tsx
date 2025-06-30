@@ -7,17 +7,19 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Platform,
+  Platform, // ✅ MUST BE IMPORTED
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { auth } from "../config/firebase";
+
+
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
 
-// Suppress unwanted console warnings:
+// ✅ Suppress noisy console warnings
 const originalWarn = console.warn;
 console.warn = (message?: string, ...args: any[]) => {
   if (
@@ -30,7 +32,7 @@ console.warn = (message?: string, ...args: any[]) => {
   originalWarn(message, ...args);
 };
 
-// Extend window for recaptcha
+// ✅ Extend window for reCAPTCHA on web
 declare global {
   interface Window {
     recaptchaVerifier: RecaptchaVerifier;
@@ -47,53 +49,64 @@ const AuthScreens = ({ navigation }: any) => {
   const [otp, setOtp] = useState("");
 
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: () => console.log("reCAPTCHA verified"),
-          "expired-callback": () => console.log("reCAPTCHA expired"),
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      try {
+        if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(
+            auth,
+            "recaptcha-container",
+            {
+              size: "invisible",
+              callback: () => console.log("✅ reCAPTCHA verified"),
+              "expired-callback": () => console.log("⚠️ reCAPTCHA expired"),
+            }
+          );
         }
-      );
+      } catch (err) {
+        console.warn("reCAPTCHA error:", err);
+      }
     }
   }, []);
 
   const handleSendOtp = async () => {
     if (!name || !phone || !business || !upiId) {
-      Toast.show({ type: "error", text1: "Fill all fields" });
+      Toast.show({ type: "error", text1: "Please fill all fields" });
       return;
     }
     if (phone.length !== 10) {
-      Toast.show({ type: "error", text1: "Enter valid 10-digit phone number" });
+      Toast.show({ type: "error", text1: "Enter valid 10-digit number" });
       return;
     }
 
     try {
       const fullPhone = `+91${phone}`;
-      const appVerifier = window.recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(
-        auth,
-        fullPhone,
-        appVerifier
-      );
-      window.confirmationResult = confirmation;
+      const appVerifier = Platform.OS === "web" ? window.recaptchaVerifier : undefined;
+      const confirmation = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+
+      if (Platform.OS === "web") {
+        window.confirmationResult = confirmation;
+      }
+
       Toast.show({ type: "success", text1: `OTP sent to ${fullPhone}` });
       setOtpSent(true);
     } catch (err: any) {
-      console.error("SMS send error:", err);
+      console.error("OTP error:", err);
       Toast.show({ type: "error", text1: err.message || "Failed to send OTP" });
     }
   };
 
   const handleVerifyOtp = async () => {
     try {
-      await window.confirmationResult.confirm(otp);
-      Toast.show({ type: "success", text1: "Phone Verified!" });
+      const confirmation =
+        Platform.OS === "web" ? window.confirmationResult : undefined;
+
+      if (!confirmation) throw new Error("Confirmation not found.");
+
+      await confirmation.confirm(otp);
+      Toast.show({ type: "success", text1: "Phone verified!" });
       navigation.replace("MainApp");
     } catch (err: any) {
-      console.error("OTP verify error:", err);
+      console.error("OTP verification error:", err);
       Toast.show({ type: "error", text1: "Invalid OTP" });
     }
   };
@@ -149,6 +162,7 @@ const AuthScreens = ({ navigation }: any) => {
         </>
       )}
 
+      {/* Invisible element required for reCAPTCHA container */}
       <View id="recaptcha-container" />
     </ScrollView>
   );
@@ -183,5 +197,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
 });
