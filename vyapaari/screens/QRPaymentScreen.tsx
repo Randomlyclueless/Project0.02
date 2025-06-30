@@ -3,186 +3,289 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Button,
   StyleSheet,
   ScrollView,
   PermissionsAndroid,
-  Platform
+  Platform,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
-import { db } from "../services/firebase";
-import { ref, push, onValue, update } from "firebase/database";
+import Voice from "@react-native-community/voice";
 import QRCode from "react-native-qrcode-svg";
-import VoiceRecorder from "../components/VoiceRecorder";
+import {
+  getDatabase,
+  ref,
+  push,
+  set,
+  onValue,
+  update,
+} from "firebase/database";
+import { auth, db as firestoreDb } from "../config/firebase"; // Firestore only
+import { doc, getDoc } from "firebase/firestore";
 
 const QRPaymentScreen = () => {
   const [vendor, setVendor] = useState("");
   const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("Cash");
   const [qrData, setQrData] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [upiId, setUpiId] = useState("");
+
+  const rtdb = getDatabase(); // ✅ Proper RTDB instance
 
   useEffect(() => {
-    const txnRef = ref(db, "transactions");
-    onValue(txnRef, (snapshot) => {
+    const fetchUpiId = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const docRef = doc(firestoreDb, "vendors", user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUpiId(data.upiId || "");
+        } else {
+          console.warn("Vendor profile not found!");
+        }
+      } catch (error) {
+        console.error("Error fetching UPI ID:", error);
+      }
+    };
+
+    fetchUpiId();
+
+    if (Platform.OS === "android") {
+      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+    }
+
+    const txnRef = ref(rtdb, "transactions");
+    const unsubscribe = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const txnList = Object.entries(data).map(([id, txn]: any) => ({ id, ...txn }));
+        const txnList = Object.entries(data).map(([id, txn]: any) => ({
+          id,
+          ...txn,
+        }));
         setTransactions(txnList.reverse());
       } else {
         setTransactions([]);
       }
     });
 
-    if (Platform.OS === "android") {
-      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-    }
+    return () => unsubscribe(); // Cleanup
   }, []);
 
-  const handleSubmit = (method: string) => {
-    if (!amount || !vendor) return;
+  const handleVoiceInput = async () => {
+    try {
+      await Voice.start("en-US");
+      Voice.onSpeechResults = (event) => {
+        const value = event?.value;
+        if (!value || value.length === 0) return;
 
-    const txn = {
+        const speech = value[0];
+        const parts = speech.split(" ");
+        const vendorName = parts[0];
+        const amt = parts.find((p) => !isNaN(parseFloat(p)));
+
+        if (vendorName) setVendor(vendorName);
+        if (amt) setAmount(amt);
+      };
+    } catch (error) {
+      console.error("Voice error:", error);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!vendor || !amount || isNaN(parseFloat(amount))) {
+      alert("Enter valid vendor name and amount");
+      return;
+    }
+
+    const txnRef = push(ref(rtdb, "transactions"));
+    const txnData = {
       vendor,
       amount: parseFloat(amount),
       method,
-      timestamp: new Date().toISOString(),
-      verified: method === "QR" ? false : true
+      timestamp: Date.now(),
+      verified: method === "Cash",
     };
 
-    const txnRef = ref(db, "transactions");
-    const newTxnRef = push(txnRef, txn);
-    setAmount("");
+    set(txnRef, txnData);
 
     if (method === "QR") {
-      const upiId = "abc@okaxis"; // Replace with your actual UPI ID
-      const upiUrl = `upi://pay?pa=${upiId}&pn=${vendor}&am=${amount}&cu=INR`;
+      if (!upiId) {
+        alert("UPI ID not loaded yet!");
+        return;
+      }
+
+      const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(
+        vendor
+      )}&am=${amount}&cu=INR`;
       setQrData(upiUrl);
 
+      // Simulated auto-verification after 2 mins
       setTimeout(() => {
-        checkAndVerifyTransaction(newTxnRef.key, vendor, parseFloat(amount));
-      }, 2 * 60 * 1000); // Wait 2 minutes to verify
+        checkAndVerifyTransaction(txnRef.key, vendor, parseFloat(amount));
+      }, 2 * 60 * 1000);
     } else {
       setQrData(null);
     }
+
+    setVendor("");
+    setAmount("");
   };
 
-  const checkAndVerifyTransaction = async (
-    txnId: string | null,
+  const checkAndVerifyTransaction = (
+    txnId: string | undefined,
     vendor: string,
     amount: number
   ) => {
-    if (!txnId) return;
-    const txnRef = ref(db, "transactions");
+    const txnRef = ref(rtdb, "transactions");
 
-    onValue(
-      txnRef,
-      (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
+    onValue(txnRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
 
-        const match = Object.entries(data).find(
-          ([key, val]: any) =>
-            key !== txnId &&
-            val.vendor === vendor &&
-            val.amount === amount &&
-            val.verified === true
+      const match = Object.entries(data).find(([id, txn]: any) => {
+        return (
+          txn.vendor === vendor &&
+          txn.amount === amount &&
+          txn.method === "QR" &&
+          !txn.verified
         );
+      });
 
-        if (match) {
-          const updateRef = ref(db, `transactions/${txnId}`);
-          update(updateRef, { verified: true });
-        }
-      },
-      {
-        onlyOnce: true
+      if (match) {
+        const [id] = match;
+        const updateRef = ref(rtdb, `transactions/${id}`);
+        update(updateRef, { verified: true });
+        Alert.alert("✅ Transaction verified!");
       }
-    );
+    });
   };
 
-  const getTotal = () => transactions.reduce((sum, t) => sum + t.amount, 0);
-  const getQR = () => transactions.filter(t => t.method === "QR").reduce((sum, t) => sum + t.amount, 0);
-  const getCash = () => transactions.filter(t => t.method === "Cash").reduce((sum, t) => sum + t.amount, 0);
-
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>⚡ Quick Payment</Text>
-      <Text style={styles.subtitle}>Enter vendor name & payment method</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>QR Payment</Text>
 
-      <Text style={styles.label}>Your Name (Vendor)</Text>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          value={vendor}
-          onChangeText={setVendor}
-          placeholder="Enter your name"
-        />
-        <VoiceRecorder onResult={(text) => setVendor(text)} />
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Vendor Name"
+        value={vendor}
+        onChangeText={setVendor}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Amount"
+        keyboardType="numeric"
+        value={amount}
+        onChangeText={setAmount}
+      />
 
-      <Text style={styles.label}>Amount (₹)</Text>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          placeholder="Enter amount"
-        />
-        <VoiceRecorder onResult={(text) => setAmount(text)} />
-      </View>
-
-      <View style={styles.row}>
-        <TouchableOpacity style={styles.qrBtn} onPress={() => handleSubmit("QR")}>
-          <Text style={styles.btnText}>QR Payment</Text>
+      <View style={styles.methodContainer}>
+        <TouchableOpacity
+          style={[
+            styles.methodButton,
+            method === "Cash" && styles.methodSelected,
+          ]}
+          onPress={() => setMethod("Cash")}
+        >
+          <Text style={styles.methodText}>Cash</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.cashBtn} onPress={() => handleSubmit("Cash")}>
-          <Text style={styles.btnText}>Cash Payment</Text>
+        <TouchableOpacity
+          style={[
+            styles.methodButton,
+            method === "QR" && styles.methodSelected,
+          ]}
+          onPress={() => setMethod("QR")}
+        >
+          <Text style={styles.methodText}>QR</Text>
         </TouchableOpacity>
       </View>
+
+      <Button title="Submit" onPress={handleSubmit} />
+      <View style={{ height: 10 }} />
+      <Button title="🎤 Voice Input" onPress={handleVoiceInput} />
 
       {qrData && (
-        <View style={{ alignItems: "center", marginVertical: 20 }}>
-          <Text style={{ marginBottom: 10 }}>Scan this UPI QR</Text>
+        <View style={styles.qrContainer}>
+          <Text style={styles.label}>Scan this QR to Pay</Text>
           <QRCode value={qrData} size={200} />
         </View>
       )}
 
-      <Text style={styles.section}>📊 Today's Summary</Text>
-      <View style={styles.summaryRow}>
-        <Text style={styles.card}>Total Revenue: ₹{getTotal()}</Text>
-        <Text style={styles.card}>QR: ₹{getQR()}</Text>
-        <Text style={styles.card}>Cash: ₹{getCash()}</Text>
-      </View>
-
-      <Text style={styles.section}>🧾 Transaction Feed</Text>
-      {transactions.map((t, i) => (
-        <View key={i} style={styles.txn}>
-          <Text>
-            {t.vendor} - ₹{t.amount} via {t.method}{" "}
-            {t.method === "QR" && (t.verified ? "✅ Verified" : "⚠️ Unverified")}
-          </Text>
-          <Text style={styles.timestamp}>{new Date(t.timestamp).toLocaleString()}</Text>
+      <Text style={styles.history}>Transaction History</Text>
+      {transactions.map((txn) => (
+        <View key={txn.id} style={styles.txnItem}>
+          <Text>Vendor: {txn.vendor}</Text>
+          <Text>Amount: ₹{txn.amount}</Text>
+          <Text>Method: {txn.method}</Text>
+          <Text>Status: {txn.verified ? "✅ Verified" : "⏳ Pending"}</Text>
         </View>
       ))}
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { padding: 20 },
-  title: { fontSize: 20, fontWeight: "bold" },
-  subtitle: { color: "#666", marginBottom: 10 },
-  label: { fontWeight: "600", marginTop: 10 },
-  input: { borderWidth: 1, borderColor: "#ccc", padding: 10, borderRadius: 6, marginBottom: 10 },
-  pickerBox: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, marginBottom: 10 },
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  qrBtn: { backgroundColor: "#4a90e2", flex: 0.48, padding: 12, borderRadius: 6 },
-  cashBtn: { backgroundColor: "#4caf50", flex: 0.48, padding: 12, borderRadius: 6 },
-  btnText: { color: "#fff", textAlign: "center", fontWeight: "600" },
-  section: { fontSize: 16, fontWeight: "bold", marginVertical: 10 },
-  summaryRow: { gap: 10, marginBottom: 10 },
-  card: { backgroundColor: "#f1f1f1", padding: 10, borderRadius: 6 },
-  txn: { borderBottomWidth: 1, borderBottomColor: "#eee", paddingVertical: 8 },
-  timestamp: { fontSize: 12, color: "#888" }
-});
-
 export default QRPaymentScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    backgroundColor: "#fff",
+    flexGrow: 1,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+  input: {
+    borderColor: "#ccc",
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  methodContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  methodButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#eee",
+    marginHorizontal: 5,
+    alignItems: "center",
+  },
+  methodSelected: {
+    backgroundColor: "#4CAF50",
+  },
+  methodText: {
+    color: "#000",
+    fontWeight: "600",
+  },
+  qrContainer: {
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  history: {
+    marginTop: 24,
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  txnItem: {
+    borderBottomColor: "#ddd",
+    borderBottomWidth: 1,
+    paddingVertical: 8,
+  },
+});

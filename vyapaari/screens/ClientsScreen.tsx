@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,56 +7,41 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  FlatList,
   Dimensions,
   Alert,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
-import FloatingVyomButton from "../components/FloatingVyomButton";
+import { onValue, remove, update } from "firebase/database";
+import { rtdb } from "../config/firebase";
+import { Client } from "../config/clientTypes";
 import LanguageSelector from "../components/LanguageSelector";
-import { Client, Transaction } from "../config/clientTypes";
-
-const initialClients: Client[] = [
-  {
-    id: "1",
-    name: "Amit Sharma",
-    totalSpent: 2000,
-    lastTransaction: "2025-06-19",
-    contact: "+91 9876543210",
-    history: [
-      {
-        date: "2025-06-19",
-        amount: 2000,
-        description: "Purchase of goods",
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Neha Gupta",
-    totalSpent: 1500,
-    lastTransaction: "2025-06-18",
-    contact: "+91 9123456789",
-    history: [
-      {
-        date: "2025-06-18",
-        amount: 1500,
-        description: "Consultation fees",
-      },
-    ],
-  },
-];
-
+import { getDatabase, ref, push, set } from "firebase/database";
 const ClientScreen = () => {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "totalSpent">("name");
   const [modalVisible, setModalVisible] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", contact: "" });
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  useEffect(() => {
+    const clientsRef = ref(rtdb, "clients");
+    const unsubscribe = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const loadedClients: Client[] = Object.entries(data).map(
+        ([id, client]: any) => ({
+          id,
+          ...client,
+        })
+      );
+      setClients(loadedClients);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredClients = useMemo(() => {
     let result = clients.filter((client) =>
@@ -71,25 +56,24 @@ const ClientScreen = () => {
 
   const handleSaveClient = () => {
     if (!newClient.name || !newClient.contact) return;
+
     if (editingClient) {
-      setClients(
-        clients.map((c) =>
-          c.id === editingClient.id ? { ...c, ...newClient } : c
-        )
-      );
+      const clientRef = ref(rtdb, `clients/${editingClient.id}`);
+      update(clientRef, {
+        name: newClient.name,
+        contact: newClient.contact,
+      });
     } else {
-      setClients([
-        ...clients,
-        {
-          id: `${clients.length + 1}`,
-          name: newClient.name,
-          contact: newClient.contact,
-          totalSpent: 0,
-          lastTransaction: "-",
-          history: [],
-        },
-      ]);
+      const newRef = push(ref(rtdb, "clients"));
+      set(newRef, {
+        name: newClient.name,
+        contact: newClient.contact,
+        totalSpent: 0,
+        lastTransaction: "-",
+        history: [],
+      });
     }
+
     setNewClient({ name: "", contact: "" });
     setEditingClient(null);
     setModalVisible(false);
@@ -102,7 +86,8 @@ const ClientScreen = () => {
         text: t("delete"),
         style: "destructive",
         onPress: () => {
-          setClients(clients.filter((client) => client.id !== id));
+          const clientRef = ref(rtdb, `clients/${id}`);
+          remove(clientRef);
         },
       },
     ]);
@@ -117,7 +102,7 @@ const ClientScreen = () => {
   const handleClientPress = (client: Client) => {
     Alert.alert(
       `${client.name}'s History`,
-      client.history.length
+      client.history?.length
         ? client.history
             .map((h) => `${h.date}: ₹${h.amount} - ${h.description}`)
             .join("\n")
@@ -189,50 +174,61 @@ const ClientScreen = () => {
             </View>
           </View>
         ))}
-
-        <Modal visible={modalVisible} animationType="slide" transparent>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {editingClient ? t("edit_client") : t("add_client")}
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder={t("client_name")}
-                value={newClient.name}
-                onChangeText={(text) =>
-                  setNewClient({ ...newClient, name: text })
-                }
-              />
-              <TextInput
-                style={styles.modalInput}
-                placeholder={t("contact")}
-                value={newClient.contact}
-                onChangeText={(text) =>
-                  setNewClient({ ...newClient, contact: text })
-                }
-                keyboardType="phone-pad"
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.modalButtonText}>{t("cancel")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonSave]}
-                  onPress={handleSaveClient}
-                >
-                  <Text style={styles.modalButtonText}>{t("save")}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
 
-      {/* <FloatingVyomButton onPress={() => setModalVisible(true)} /> */}
+      {/* ➕ Floating Button to Add New Client */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => {
+          setNewClient({ name: "", contact: "" });
+          setEditingClient(null);
+          setModalVisible(true);
+        }}
+      >
+        <Text style={styles.floatingButtonText}>＋</Text>
+      </TouchableOpacity>
+
+      {/* ➕ Add / Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingClient ? t("edit_client") : t("add_client")}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder={t("client_name")}
+              value={newClient.name}
+              onChangeText={(text) =>
+                setNewClient({ ...newClient, name: text })
+              }
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder={t("contact")}
+              value={newClient.contact}
+              onChangeText={(text) =>
+                setNewClient({ ...newClient, contact: text })
+              }
+              keyboardType="phone-pad"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSave]}
+                onPress={handleSaveClient}
+              >
+                <Text style={styles.modalButtonText}>{t("save")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -290,12 +286,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   actionText: { fontSize: 14, color: "#007bff" },
-  emptyText: {
-    fontSize: 16,
-    color: "#888",
-    textAlign: "center",
-    marginTop: 20,
-  },
   modalContainer: {
     flex: 1,
     justifyContent: "center",
@@ -327,4 +317,21 @@ const styles = StyleSheet.create({
   },
   modalButtonSave: { backgroundColor: "#27ae60" },
   modalButtonText: { fontSize: 16, color: "#333" },
+  floatingButton: {
+    position: "absolute",
+    bottom: 30,
+    right: 30,
+    backgroundColor: "#27ae60",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+  },
+  floatingButtonText: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "bold",
+  },
 });

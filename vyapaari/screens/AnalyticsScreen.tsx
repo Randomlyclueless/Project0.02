@@ -10,7 +10,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LineChart, PieChart } from "react-native-chart-kit";
-import { db } from "../services/firebase";
+import { rtdb } from "../config/firebase";
 import { ref, onValue } from "firebase/database";
 import { RootStackParamList } from "../App";
 
@@ -22,7 +22,7 @@ export default function AnalyticsScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
-    const txnRef = ref(db, "transactions");
+    const txnRef = ref(rtdb, "transactions");
     onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
