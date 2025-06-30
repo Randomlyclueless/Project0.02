@@ -10,7 +10,11 @@ import {
   Platform,
   Alert,
 } from "react-native";
+<<<<<<< Updated upstream
 import { rtdb } from "../config/firebase";
+=======
+import { db } from "../config/firebase";
+>>>>>>> Stashed changes
 import { ref, push, onValue, update, off } from "firebase/database";
 import QRCode from "react-native-qrcode-svg";
 import VoiceRecorder from "../components/VoiceRecorder";
@@ -22,7 +26,11 @@ const QRPaymentScreen = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
+<<<<<<< Updated upstream
     const txnRef = ref(rtdb, "transactions");
+=======
+    const txnRef = ref(db, "transactions");
+>>>>>>> Stashed changes
     const unsubscribe = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -54,7 +62,11 @@ const QRPaymentScreen = () => {
       verified: method === "QR" ? false : true,
     };
 
+<<<<<<< Updated upstream
     const txnRef = ref(rtdb, "transactions");
+=======
+    const txnRef = ref(db, "transactions");
+>>>>>>> Stashed changes
     const newTxnRef = push(txnRef, txn);
     const txnId = newTxnRef.key;
     setAmount("");
@@ -76,6 +88,7 @@ const QRPaymentScreen = () => {
             val.amount === parseFloat(amount) &&
             val.method === "QR" &&
             val.verified === true &&
+<<<<<<< Updated upstream
             Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
               5 * 60 * 1000
         );
@@ -89,6 +102,19 @@ const QRPaymentScreen = () => {
             "✅ Payment Verified",
             "The transaction has been verified."
           );
+=======
+            Math.abs(
+              new Date(val.timestamp).getTime() - new Date().getTime()
+            ) < 5 * 60 * 1000
+        );
+
+        if (match && txnId) {
+          update(ref(db, `transactions/${txnId}`), { verified: true });
+          setQrData(null);
+          setVendor("");
+          setAmount("");
+          Alert.alert("✅ Payment Verified", "The transaction has been verified.");
+>>>>>>> Stashed changes
           off(txnRef);
         }
       });
@@ -114,7 +140,11 @@ const QRPaymentScreen = () => {
     amount: number
   ) => {
     if (!txnId) return;
+<<<<<<< Updated upstream
     const txnRef = ref(rtdb, "transactions");
+=======
+    const txnRef = ref(db, "transactions");
+>>>>>>> Stashed changes
 
     onValue(
       txnRef,
@@ -128,12 +158,22 @@ const QRPaymentScreen = () => {
             val.vendor === vendor &&
             val.amount === amount &&
             val.verified === true &&
+<<<<<<< Updated upstream
             Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
               5 * 60 * 1000
         );
 
         if (match) {
           update(ref(rtdb, `transactions/${txnId}`), { verified: true });
+=======
+            Math.abs(
+              new Date(val.timestamp).getTime() - new Date().getTime()
+            ) < 5 * 60 * 1000
+        );
+
+        if (match) {
+          update(ref(db, `transactions/${txnId}`), { verified: true });
+>>>>>>> Stashed changes
           setQrData(null);
           setVendor("");
           setAmount("");
@@ -220,8 +260,12 @@ const QRPaymentScreen = () => {
         <View key={i} style={styles.txn}>
           <Text>
             {t.vendor} - ₹{t.amount} via {t.method}{" "}
+<<<<<<< Updated upstream
             {t.method === "QR" &&
               (t.verified ? "✅ Verified" : "⚠️ Unverified")}
+=======
+            {t.method === "QR" && (t.verified ? "✅ Verified" : "⚠️ Unverified")}
+>>>>>>> Stashed changes
           </Text>
           <Text style={styles.timestamp}>
             {new Date(t.timestamp).toLocaleString()}

@@ -9,6 +9,10 @@ import Toast from "react-native-toast-message";
 import AuthScreens from "./screens/AuthScreens"; // 🔁 Signup screen
 import LoginScreen from "./screens/LoginScreen"; // ✅ Login screen
 import DashboardScreen from "./screens/DashboardScreen";
+<<<<<<< Updated upstream
+=======
+// import TransactionsScreen from "./screens/TransactionsScreen"; ❌ removed
+>>>>>>> Stashed changes
 import QRPaymentScreen from "./screens/QRPaymentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import VyomScreen from "./screens/VyomScreen";
@@ -26,6 +30,10 @@ function DrawerNavigator() {
       screenOptions={{ headerShown: true }}
     >
       <Drawer.Screen name="Hii Vyapaari" component={DashboardScreen} />
+<<<<<<< Updated upstream
+=======
+      {/* <Drawer.Screen name="Transactions" component={TransactionsScreen} /> ❌ removed */}
+>>>>>>> Stashed changes
       <Drawer.Screen name="QR Code" component={QRPaymentScreen} />
       <Drawer.Screen name="Analytics" component={AnalyticsScreen} />
       <Drawer.Screen name="Vyom Assistant" component={VyomScreen} />
