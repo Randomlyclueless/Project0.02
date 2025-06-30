@@ -4,21 +4,19 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable, // ✅ Changed from TouchableOpacity
+  TouchableOpacity,
   Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { LineChart, PieChart } from "react-native-chart-kit";
-import { db } from "../services/firebase";
+import { db } from "../config/firebase";
+
 import { ref, onValue } from "firebase/database";
-import { RootStackParamList } from "../App";
+import { LineChart, PieChart } from "react-native-chart-kit";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function AnalyticsScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation();
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -54,13 +52,11 @@ export default function AnalyticsScreen() {
     ? ((cashRevenue / totalRevenue) * 100).toFixed(1)
     : "0";
 
-  const last7Days = [...Array(7)]
-    .map((_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toDateString();
-    })
-    .reverse();
+  const last7Days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toDateString();
+  }).reverse();
 
   const dailySums = last7Days.map((day) =>
     transactions
@@ -76,8 +72,7 @@ export default function AnalyticsScreen() {
     const hour = new Date(t.timestamp).getHours();
     hourMap[hour] = (hourMap[hour] || 0) + 1;
   });
-  const peakHour =
-    Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+  const peakHour = Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
 
   const repeatBuyers = new Set();
   const buyerMap: Record<string, number> = {};
@@ -86,22 +81,26 @@ export default function AnalyticsScreen() {
     if (buyerMap[t.vendor] > 1) repeatBuyers.add(t.vendor);
   });
 
-  const frauds = transactions.filter(
+  const frauds = todayTxns.filter(
     (t) => t.method === "QR" && t.verified === false
   );
 
   return (
     <ScrollView style={styles.container}>
-      <Pressable onPress={() => navigation.goBack()}>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.back}>⬅️ Back</Text>
-      </Pressable>
+      </TouchableOpacity>
 
       <Text style={styles.header}>📊 Analytics Dashboard</Text>
+
+      {todayTxns.length === 0 && (
+        <Text style={styles.noData}>No transactions recorded today.</Text>
+      )}
 
       <View style={styles.cardRow}>
         <View style={styles.card}>
           <Text style={styles.title}>Total Revenue</Text>
-          <Text style={styles.value}>₹{totalRevenue.toFixed(2)}</Text>
+          <Text style={styles.value}>₹{Number(totalRevenue).toFixed(2)}</Text>
         </View>
         <View style={styles.card}>
           <Text style={styles.title}>Transactions</Text>
@@ -136,13 +135,13 @@ export default function AnalyticsScreen() {
         <Text style={styles.value}>{repeatBuyers.size}</Text>
       </View>
 
-      {/* 🔥 Fraud Detection Section */}
+      {/* 🚨 Fraud Detection */}
       <View style={styles.fraudBox}>
         <Text style={styles.fraudHeader}>🚨 Fraud Detection</Text>
         {frauds.length > 0 ? (
           frauds.map((f, i) => (
             <View key={i} style={styles.fraudItem}>
-              <Text>
+              <Text style={{ textTransform: "capitalize" }}>
                 • {f.vendor} - ₹{f.amount}
               </Text>
               <Text style={styles.fraudTime}>
@@ -151,76 +150,66 @@ export default function AnalyticsScreen() {
             </View>
           ))
         ) : (
-          <Text style={styles.noFraud}>
-            ✅ No unverified QR payments today.
-          </Text>
+          <Text style={styles.noFraud}>✅ No unverified QR payments today.</Text>
         )}
       </View>
 
+      {/* 📈 7-Day Line Chart */}
       <Text style={styles.chartTitle}>📈 Income Over 7 Days</Text>
-      <LineChart
-        data={{
-          labels: last7Days.map((d) => d.slice(4, 10)),
-          datasets: [{ data: dailySums }],
-        }}
-        width={screenWidth - 30}
-        height={220}
-        chartConfig={{
-          backgroundGradientFrom: "#fefefe",
-          backgroundGradientTo: "#fefefe",
-          color: () => "#4a90e2",
-          labelColor: () => "#333",
-        }}
-        style={styles.chart}
-      />
+      <View style={{ width: screenWidth - 30, alignSelf: "center" }}>
+        <LineChart
+          data={{
+            labels: last7Days.map((d) => d.slice(4, 10)),
+            datasets: [{ data: dailySums }],
+          }}
+          width={screenWidth - 30}
+          height={220}
+          chartConfig={{
+            backgroundGradientFrom: "#fefefe",
+            backgroundGradientTo: "#fefefe",
+            color: () => "#4a90e2",
+            labelColor: () => "#333",
+          }}
+          style={styles.chart}
+        />
+      </View>
 
+      {/* 💰 QR vs Cash Split Pie Chart */}
       <Text style={styles.chartTitle}>💰 QR vs Cash</Text>
-      <PieChart
-        data={[
-          {
-            name: "QR",
-            population: parseFloat(qrPercent),
-            color: "#4a90e2",
-            legendFontColor: "#444",
-            legendFontSize: 14,
-          },
-          {
-            name: "Cash",
-            population: parseFloat(cashPercent),
-            color: "#4caf50",
-            legendFontColor: "#444",
-            legendFontSize: 14,
-          },
-        ]}
-        width={screenWidth - 30}
-        height={200}
-        chartConfig={{ color: () => "#000" }}
-        accessor="population"
-        backgroundColor="transparent"
-        paddingLeft="15"
-        absolute
-      />
+      <View style={{ width: screenWidth - 30, alignSelf: "center" }}>
+        <PieChart
+          data={[
+            {
+              name: "QR",
+              population: parseFloat(qrPercent),
+              color: "#4a90e2",
+              legendFontColor: "#444",
+              legendFontSize: 14,
+            },
+            {
+              name: "Cash",
+              population: parseFloat(cashPercent),
+              color: "#4caf50",
+              legendFontColor: "#444",
+              legendFontSize: 14,
+            },
+          ]}
+          width={screenWidth - 30}
+          height={200}
+          chartConfig={{ color: () => "#000" }}
+          accessor="population"
+          backgroundColor="transparent"
+          paddingLeft="15"
+          absolute
+        />
+      </View>
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.btn,
-          pressed && styles.btnPressed, // ✅ Add pressed state styling
-        ]}
+      <TouchableOpacity
+        style={styles.btn}
         onPress={() => navigation.navigate("LoanReport")}
       >
         <Text style={styles.btnText}>📤 View Loan Report</Text>
-      </Pressable>
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.btn,
-          { backgroundColor: "#6a1b9a", marginTop: 10 },
-          pressed && styles.btnPressed, // ✅ Add pressed state styling
-        ]}
-        onPress={() => navigation.navigate("Vyom Assistant")}
-      >
-        <Text style={styles.btnText}>🤖 Ask Vyom Assistant</Text>
-      </Pressable>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -234,6 +223,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   header: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
+  noData: {
+    fontStyle: "italic",
+    color: "#999",
+    marginBottom: 15,
+  },
   cardRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -259,10 +253,6 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 25,
     borderRadius: 10,
-  },
-  btnPressed: {
-    opacity: 0.7, // ✅ Add pressed state styling
-    transform: [{ scale: 0.98 }],
   },
   btnText: {
     color: "#fff",
