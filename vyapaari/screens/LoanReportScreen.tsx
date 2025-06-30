@@ -7,7 +7,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { rtdb } from "../config/firebase"; // ✅ Realtime Database instance
+import { rtdb } from "../config/firebase"; // ✅ Correct DB import
 import { onValue, ref } from "firebase/database";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -17,7 +17,7 @@ const LoanReportScreen = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const txnRef = ref(rtdb, "transactions"); // ✅ Corrected from db ➝ rtdb
+    const txnRef = ref(rtdb, "transactions");
     const unsubscribe = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {

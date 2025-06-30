@@ -20,9 +20,11 @@ import {
   set,
   onValue,
   update,
+  off,
+  get,
+  child,
 } from "firebase/database";
-import { auth, db as firestoreDb } from "../config/firebase"; // Firestore only
-import { doc, getDoc } from "firebase/firestore";
+import { auth } from "../config/firebase"; // ✅ Only importing auth now
 
 const QRPaymentScreen = () => {
   const [vendor, setVendor] = useState("");
@@ -32,7 +34,7 @@ const QRPaymentScreen = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [upiId, setUpiId] = useState("");
 
-  const rtdb = getDatabase(); // ✅ Proper RTDB instance
+  const rtdb = getDatabase();
 
   useEffect(() => {
     const fetchUpiId = async () => {
@@ -40,17 +42,15 @@ const QRPaymentScreen = () => {
       if (!user) return;
 
       try {
-        const docRef = doc(firestoreDb, "vendors", user.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        const snapshot = await get(child(ref(rtdb), `vendors/${user.uid}`));
+        if (snapshot.exists()) {
+          const data = snapshot.val();
           setUpiId(data.upiId || "");
         } else {
-          console.warn("Vendor profile not found!");
+          console.warn("Vendor profile not found in RTDB!");
         }
       } catch (error) {
-        console.error("Error fetching UPI ID:", error);
+        console.error("Error fetching UPI ID from RTDB:", error);
       }
     };
 
@@ -74,7 +74,7 @@ const QRPaymentScreen = () => {
       }
     });
 
-    return () => unsubscribe(); // Cleanup
+    return () => off(txnRef);
   }, []);
 
   const handleVoiceInput = async () => {
@@ -125,7 +125,7 @@ const QRPaymentScreen = () => {
       )}&am=${amount}&cu=INR`;
       setQrData(upiUrl);
 
-      // Simulated auto-verification after 2 mins
+      // Auto-verify fallback after 2 mins
       setTimeout(() => {
         checkAndVerifyTransaction(txnRef.key, vendor, parseFloat(amount));
       }, 2 * 60 * 1000);
@@ -144,27 +144,42 @@ const QRPaymentScreen = () => {
   ) => {
     const txnRef = ref(rtdb, "transactions");
 
-    onValue(txnRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+    onValue(
+      txnRef,
+      (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
 
-      const match = Object.entries(data).find(([id, txn]: any) => {
-        return (
-          txn.vendor === vendor &&
-          txn.amount === amount &&
-          txn.method === "QR" &&
-          !txn.verified
-        );
-      });
+        const match = Object.entries(data).find(([id, txn]: any) => {
+          return (
+            txn.vendor === vendor &&
+            txn.amount === amount &&
+            txn.method === "QR" &&
+            !txn.verified
+          );
+        });
 
-      if (match) {
-        const [id] = match;
-        const updateRef = ref(rtdb, `transactions/${id}`);
-        update(updateRef, { verified: true });
-        Alert.alert("✅ Transaction verified!");
-      }
-    });
+        if (match) {
+          const [id] = match;
+          const updateRef = ref(rtdb, `transactions/${id}`);
+          update(updateRef, { verified: true });
+          Alert.alert("✅ Transaction verified!");
+        }
+      },
+      { onlyOnce: true }
+    );
   };
+
+  const getTotal = () =>
+    transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const getQR = () =>
+    transactions
+      .filter((t) => t.method === "QR")
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  const getCash = () =>
+    transactions
+      .filter((t) => t.method === "Cash")
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -216,20 +231,28 @@ const QRPaymentScreen = () => {
         </View>
       )}
 
-      <Text style={styles.history}>Transaction History</Text>
+      <Text style={styles.label}>📊 Summary</Text>
+      <View>
+        <Text>Total: ₹{getTotal()}</Text>
+        <Text>QR: ₹{getQR()}</Text>
+        <Text>Cash: ₹{getCash()}</Text>
+      </View>
+
+      <Text style={styles.history}>🧾 Transaction History</Text>
       {transactions.map((txn) => (
         <View key={txn.id} style={styles.txnItem}>
           <Text>Vendor: {txn.vendor}</Text>
           <Text>Amount: ₹{txn.amount}</Text>
           <Text>Method: {txn.method}</Text>
           <Text>Status: {txn.verified ? "✅ Verified" : "⏳ Pending"}</Text>
+          <Text style={{ fontSize: 12, color: "#888" }}>
+            {new Date(txn.timestamp).toLocaleString()}
+          </Text>
         </View>
       ))}
     </ScrollView>
   );
 };
-
-export default QRPaymentScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -289,3 +312,5 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
 });
+
+export default QRPaymentScreen;
