@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Button, StyleSheet, ScrollView, Alert } from "react-native";
-import { db } from "../services/firebase";
+import { db } from "../config/firebase";
+
 import { onValue, ref } from "firebase/database";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
