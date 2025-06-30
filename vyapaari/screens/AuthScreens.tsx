@@ -7,32 +7,19 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Platform, // ✅ MUST BE IMPORTED
+  Platform,
+  TouchableOpacity,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { auth } from "../config/firebase";
-
-
+import { auth, rtdb } from "../config/firebase";
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
+import { ref, set } from "firebase/database";
+import bcrypt from "bcryptjs";
 
-// ✅ Suppress noisy console warnings
-const originalWarn = console.warn;
-console.warn = (message?: string, ...args: any[]) => {
-  if (
-    typeof message === "string" &&
-    (message.includes("Unknown event handler property") ||
-      message.includes("TouchableMixin is deprecated") ||
-      message.includes("This method is deprecated"))
-  )
-    return;
-  originalWarn(message, ...args);
-};
-
-// ✅ Extend window for reCAPTCHA on web
 declare global {
   interface Window {
     recaptchaVerifier: RecaptchaVerifier;
@@ -45,8 +32,10 @@ const AuthScreens = ({ navigation }: any) => {
   const [phone, setPhone] = useState("");
   const [business, setBusiness] = useState("");
   const [upiId, setUpiId] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -69,28 +58,54 @@ const AuthScreens = ({ navigation }: any) => {
   }, []);
 
   const handleSendOtp = async () => {
-    if (!name || !phone || !business || !upiId) {
+    if (
+      !name ||
+      !phone ||
+      !business ||
+      !upiId ||
+      !password ||
+      !confirmPassword
+    ) {
       Toast.show({ type: "error", text1: "Please fill all fields" });
       return;
     }
+
     if (phone.length !== 10) {
-      Toast.show({ type: "error", text1: "Enter valid 10-digit number" });
+      Toast.show({ type: "error", text1: "Enter a valid 10-digit number" });
+      return;
+    }
+
+    if (password.length < 6) {
+      Toast.show({
+        type: "error",
+        text1: "Password must be at least 6 characters",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Toast.show({ type: "error", text1: "Passwords do not match" });
       return;
     }
 
     try {
       const fullPhone = `+91${phone}`;
-      const appVerifier = Platform.OS === "web" ? window.recaptchaVerifier : undefined;
-      const confirmation = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+      const appVerifier =
+        Platform.OS === "web" ? window.recaptchaVerifier : undefined;
+      const confirmation = await signInWithPhoneNumber(
+        auth,
+        fullPhone,
+        appVerifier
+      );
 
       if (Platform.OS === "web") {
         window.confirmationResult = confirmation;
       }
 
-      Toast.show({ type: "success", text1: `OTP sent to ${fullPhone}` });
       setOtpSent(true);
+      Toast.show({ type: "success", text1: `OTP sent to ${fullPhone}` });
     } catch (err: any) {
-      console.error("OTP error:", err);
+      console.error("OTP send error:", err);
       Toast.show({ type: "error", text1: err.message || "Failed to send OTP" });
     }
   };
@@ -100,20 +115,37 @@ const AuthScreens = ({ navigation }: any) => {
       const confirmation =
         Platform.OS === "web" ? window.confirmationResult : undefined;
 
-      if (!confirmation) throw new Error("Confirmation not found.");
+      if (!confirmation) {
+        Toast.show({ type: "error", text1: "OTP confirmation not found." });
+        return;
+      }
 
-      await confirmation.confirm(otp);
-      Toast.show({ type: "success", text1: "Phone verified!" });
+      const result = await confirmation.confirm(otp);
+      const user = result.user;
+
+      const hashedPassword = bcrypt.hashSync(password, 10);
+
+      await set(ref(rtdb, `users/${phone}`), {
+        uid: user.uid,
+        name,
+        phone: `+91${phone}`,
+        business,
+        upiId,
+        password: hashedPassword, // ✅ now it’s hashed
+        createdAt: new Date().toISOString(),
+      });
+
+      Toast.show({ type: "success", text1: "🎉 Signed up successfully!" });
       navigation.replace("MainApp");
     } catch (err: any) {
-      console.error("OTP verification error:", err);
+      console.error("OTP verify error:", err);
       Toast.show({ type: "error", text1: "Invalid OTP" });
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>👋 Welcome Vyapaari</Text>
+      <Text style={styles.title}>📋 Create your Vyapaari account</Text>
 
       <TextInput
         style={styles.input}
@@ -141,10 +173,24 @@ const AuthScreens = ({ navigation }: any) => {
         value={upiId}
         onChangeText={setUpiId}
       />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
 
       {!otpSent ? (
         <Pressable style={styles.button} onPress={handleSendOtp}>
-          <Text style={styles.buttonText}>Continue & Send OTP</Text>
+          <Text style={styles.buttonText}>Send OTP & Continue</Text>
         </Pressable>
       ) : (
         <>
@@ -157,12 +203,16 @@ const AuthScreens = ({ navigation }: any) => {
             onChangeText={setOtp}
           />
           <Pressable style={styles.button} onPress={handleVerifyOtp}>
-            <Text style={styles.buttonText}>Verify & Continue</Text>
+            <Text style={styles.buttonText}>Verify OTP & Sign Up</Text>
           </Pressable>
         </>
       )}
 
-      {/* Invisible element required for reCAPTCHA container */}
+      {/* 🔁 Link to Login Screen */}
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.link}>Already have an account? Login here</Text>
+      </TouchableOpacity>
+
       <View id="recaptcha-container" />
     </ScrollView>
   );
@@ -196,10 +246,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
+    marginBottom: 15,
   },
   buttonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
+  },
+  link: {
+    textAlign: "center",
+    color: "#1E90FF",
+    marginTop: 15,
+    textDecorationLine: "underline",
   },
 });

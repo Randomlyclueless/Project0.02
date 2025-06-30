@@ -5,9 +5,10 @@ import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Toast from "react-native-toast-message";
 
-import AuthScreens from "./screens/AuthScreens";
+// Screens
+import AuthScreens from "./screens/AuthScreens"; // 🔁 Signup screen
+import LoginScreen from "./screens/LoginScreen"; // ✅ Login screen
 import DashboardScreen from "./screens/DashboardScreen";
-import TransactionsScreen from "./screens/TransactionsScreen";
 import QRPaymentScreen from "./screens/QRPaymentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import VyomScreen from "./screens/VyomScreen";
@@ -20,9 +21,11 @@ const Drawer = createDrawerNavigator();
 
 function DrawerNavigator() {
   return (
-    <Drawer.Navigator initialRouteName="Hii Vyapaari" screenOptions={{ headerShown: true }}>
+    <Drawer.Navigator
+      initialRouteName="Hii Vyapaari"
+      screenOptions={{ headerShown: true }}
+    >
       <Drawer.Screen name="Hii Vyapaari" component={DashboardScreen} />
-      <Drawer.Screen name="Transactions" component={TransactionsScreen} />
       <Drawer.Screen name="QR Code" component={QRPaymentScreen} />
       <Drawer.Screen name="Analytics" component={AnalyticsScreen} />
       <Drawer.Screen name="Vyom Assistant" component={VyomScreen} />
@@ -36,8 +39,12 @@ export default function App() {
   return (
     <>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          initialRouteName="Auth"
+          screenOptions={{ headerShown: false }}
+        >
           <Stack.Screen name="Auth" component={AuthScreens} />
+          <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="MainApp" component={DrawerNavigator} />
           <Stack.Screen name="LoanReport" component={LoanReportScreen} />
         </Stack.Navigator>

@@ -10,7 +10,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { db } from "../config/firebase";
+import { rtdb } from "../config/firebase";
 import { ref, push, onValue, update, off } from "firebase/database";
 import QRCode from "react-native-qrcode-svg";
 import VoiceRecorder from "../components/VoiceRecorder";
@@ -22,7 +22,7 @@ const QRPaymentScreen = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
-    const txnRef = ref(db, "transactions");
+    const txnRef = ref(rtdb, "transactions");
     const unsubscribe = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -54,7 +54,7 @@ const QRPaymentScreen = () => {
       verified: method === "QR" ? false : true,
     };
 
-    const txnRef = ref(db, "transactions");
+    const txnRef = ref(rtdb, "transactions");
     const newTxnRef = push(txnRef, txn);
     const txnId = newTxnRef.key;
     setAmount("");
@@ -76,17 +76,19 @@ const QRPaymentScreen = () => {
             val.amount === parseFloat(amount) &&
             val.method === "QR" &&
             val.verified === true &&
-            Math.abs(
-              new Date(val.timestamp).getTime() - new Date().getTime()
-            ) < 5 * 60 * 1000
+            Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
+              5 * 60 * 1000
         );
 
         if (match && txnId) {
-          update(ref(db, `transactions/${txnId}`), { verified: true });
+          update(ref(rtdb, `transactions/${txnId}`), { verified: true });
           setQrData(null);
           setVendor("");
           setAmount("");
-          Alert.alert("✅ Payment Verified", "The transaction has been verified.");
+          Alert.alert(
+            "✅ Payment Verified",
+            "The transaction has been verified."
+          );
           off(txnRef);
         }
       });
@@ -112,7 +114,7 @@ const QRPaymentScreen = () => {
     amount: number
   ) => {
     if (!txnId) return;
-    const txnRef = ref(db, "transactions");
+    const txnRef = ref(rtdb, "transactions");
 
     onValue(
       txnRef,
@@ -126,13 +128,12 @@ const QRPaymentScreen = () => {
             val.vendor === vendor &&
             val.amount === amount &&
             val.verified === true &&
-            Math.abs(
-              new Date(val.timestamp).getTime() - new Date().getTime()
-            ) < 5 * 60 * 1000
+            Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
+              5 * 60 * 1000
         );
 
         if (match) {
-          update(ref(db, `transactions/${txnId}`), { verified: true });
+          update(ref(rtdb, `transactions/${txnId}`), { verified: true });
           setQrData(null);
           setVendor("");
           setAmount("");
@@ -219,7 +220,8 @@ const QRPaymentScreen = () => {
         <View key={i} style={styles.txn}>
           <Text>
             {t.vendor} - ₹{t.amount} via {t.method}{" "}
-            {t.method === "QR" && (t.verified ? "✅ Verified" : "⚠️ Unverified")}
+            {t.method === "QR" &&
+              (t.verified ? "✅ Verified" : "⚠️ Unverified")}
           </Text>
           <Text style={styles.timestamp}>
             {new Date(t.timestamp).toLocaleString()}
