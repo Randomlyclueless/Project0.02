@@ -1,9 +1,8 @@
-// config/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 
-// --- Auth Project Config ---
+// --- Firebase Auth Project Config ---
 const authConfig = {
   apiKey: "AIzaSyAlMQ-CUk_uM-5BtMkmkvhjiQxiCeSJI3Y",
   authDomain: "vyapaari-e9ba1.firebaseapp.com",
@@ -13,7 +12,7 @@ const authConfig = {
   appId: "1:483367120647:web:3049d9232ce5b7d8921fa2",
 };
 
-// --- Realtime DB Project Config ---
+// --- Firebase RTDB Project Config ---
 const dbConfig = {
   apiKey: "AIzaSyCeSC-y1SdKnLj2Ghrc0jGiSCygMCXSLUk",
   authDomain: "vyapaari-bdc68.firebaseapp.com",
@@ -24,12 +23,13 @@ const dbConfig = {
   appId: "1:532526940602:web:453ff54ac16f11197e9d83",
 };
 
-// --- Initialize the Auth App ---
-const appAuth = getApps().find(app => app.name === "[DEFAULT]") || initializeApp(authConfig);
+// --- Initialize Auth App (default) ---
+const appAuth = getApps().length ? getApp() : initializeApp(authConfig);
 const auth = getAuth(appAuth);
 
-// --- Initialize the DB App (as named app) ---
-const appDB = getApps().find(app => app.name === "DB_APP") || initializeApp(dbConfig, "DB_APP");
+// --- Initialize RTDB App (named instance) ---
+const appDB =
+  getApps().find((a) => a.name === "DB_APP") || initializeApp(dbConfig, "DB_APP");
 const rtdb = getDatabase(appDB);
 
 export { auth, rtdb };

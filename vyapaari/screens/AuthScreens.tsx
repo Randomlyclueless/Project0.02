@@ -1,5 +1,5 @@
 // screens/AuthScreens.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,60 +7,26 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Platform,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { auth, rtdb } from "../config/firebase";
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
-} from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, set } from "firebase/database";
-import bcrypt from "bcryptjs";
-
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-    confirmationResult: ConfirmationResult;
-  }
-}
 
 const AuthScreens = ({ navigation }: any) => {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [business, setBusiness] = useState("");
   const [upiId, setUpiId] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
 
-  useEffect(() => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      try {
-        if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier(
-            auth,
-            "recaptcha-container",
-            {
-              size: "invisible",
-              callback: () => console.log("✅ reCAPTCHA verified"),
-              "expired-callback": () => console.log("⚠️ reCAPTCHA expired"),
-            }
-          );
-        }
-      } catch (err) {
-        console.warn("reCAPTCHA error:", err);
-      }
-    }
-  }, []);
-
-  const handleSendOtp = async () => {
+  const handleSignup = async () => {
     if (
       !name ||
-      !phone ||
+      !email ||
       !business ||
       !upiId ||
       !password ||
@@ -70,8 +36,8 @@ const AuthScreens = ({ navigation }: any) => {
       return;
     }
 
-    if (phone.length !== 10) {
-      Toast.show({ type: "error", text1: "Enter a valid 10-digit number" });
+    if (!email.includes("@")) {
+      Toast.show({ type: "error", text1: "Enter a valid email" });
       return;
     }
 
@@ -89,57 +55,27 @@ const AuthScreens = ({ navigation }: any) => {
     }
 
     try {
-      const fullPhone = `+91${phone}`;
-      const appVerifier =
-        Platform.OS === "web" ? window.recaptchaVerifier : undefined;
-      const confirmation = await signInWithPhoneNumber(
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
-        fullPhone,
-        appVerifier
+        email,
+        password
       );
+      const uid = userCredential.user.uid;
 
-      if (Platform.OS === "web") {
-        window.confirmationResult = confirmation;
-      }
-
-      setOtpSent(true);
-      Toast.show({ type: "success", text1: `OTP sent to ${fullPhone}` });
-    } catch (err: any) {
-      console.error("OTP send error:", err);
-      Toast.show({ type: "error", text1: err.message || "Failed to send OTP" });
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    try {
-      const confirmation =
-        Platform.OS === "web" ? window.confirmationResult : undefined;
-
-      if (!confirmation) {
-        Toast.show({ type: "error", text1: "OTP confirmation not found." });
-        return;
-      }
-
-      const result = await confirmation.confirm(otp);
-      const user = result.user;
-
-      const hashedPassword = bcrypt.hashSync(password, 10);
-
-      await set(ref(rtdb, `users/${phone}`), {
-        uid: user.uid,
+      await set(ref(rtdb, `users/${uid}`), {
+        uid,
         name,
-        phone: `+91${phone}`,
+        email,
         business,
         upiId,
-        password: hashedPassword, // ✅ now it’s hashed
         createdAt: new Date().toISOString(),
       });
 
       Toast.show({ type: "success", text1: "🎉 Signed up successfully!" });
       navigation.replace("MainApp");
     } catch (err: any) {
-      console.error("OTP verify error:", err);
-      Toast.show({ type: "error", text1: "Invalid OTP" });
+      console.error("Signup error:", err);
+      Toast.show({ type: "error", text1: err.message || "Signup failed" });
     }
   };
 
@@ -155,11 +91,11 @@ const AuthScreens = ({ navigation }: any) => {
       />
       <TextInput
         style={styles.input}
-        placeholder="Phone Number"
-        keyboardType="number-pad"
-        maxLength={10}
-        value={phone}
-        onChangeText={setPhone}
+        placeholder="Email Address"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
       />
       <TextInput
         style={styles.input}
@@ -188,32 +124,13 @@ const AuthScreens = ({ navigation }: any) => {
         onChangeText={setConfirmPassword}
       />
 
-      {!otpSent ? (
-        <Pressable style={styles.button} onPress={handleSendOtp}>
-          <Text style={styles.buttonText}>Send OTP & Continue</Text>
-        </Pressable>
-      ) : (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter OTP"
-            keyboardType="number-pad"
-            maxLength={6}
-            value={otp}
-            onChangeText={setOtp}
-          />
-          <Pressable style={styles.button} onPress={handleVerifyOtp}>
-            <Text style={styles.buttonText}>Verify OTP & Sign Up</Text>
-          </Pressable>
-        </>
-      )}
+      <Pressable style={styles.button} onPress={handleSignup}>
+        <Text style={styles.buttonText}>Sign Up</Text>
+      </Pressable>
 
-      {/* 🔁 Link to Login Screen */}
       <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={styles.link}>Already have an account? Login here</Text>
       </TouchableOpacity>
-
-      <View id="recaptcha-container" />
     </ScrollView>
   );
 };
