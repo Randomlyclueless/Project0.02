@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { rtdb, auth } from "../config/firebase";
-import { ref, push, onValue, update, off } from "firebase/database";
+import { ref, push, onValue, update, off, get, set } from "firebase/database";
 import QRCode from "react-native-qrcode-svg";
 import VoiceRecorder from "../components/VoiceRecorder";
 import Toast from "react-native-toast-message";
@@ -21,6 +21,8 @@ const QRPaymentScreen = () => {
   const [amount, setAmount] = useState("");
   const [qrData, setQrData] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [userUpi, setUserUpi] = useState("");
+  const [savedUpi, setSavedUpi] = useState("");
 
   useEffect(() => {
     const txnRef = ref(rtdb, "transactions");
@@ -36,6 +38,20 @@ const QRPaymentScreen = () => {
         setTransactions([]);
       }
     });
+
+    const fetchUserUpi = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const snapshot = await get(ref(rtdb, `users/${user.uid}/userUPI`));
+      if (snapshot.exists()) {
+        const upi = snapshot.val();
+        setUserUpi(upi);
+        setSavedUpi(upi);
+      }
+    };
+
+    fetchUserUpi();
 
     if (Platform.OS === "android") {
       PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
@@ -68,11 +84,10 @@ const QRPaymentScreen = () => {
     setAmount("");
 
     if (method === "QR") {
-      const upiId = "abc@okaxis";
+      const upiId = savedUpi || "abc@okaxis";
       const upiUrl = `upi://pay?pa=${upiId}&pn=${vendor}&am=${amount}&cu=INR`;
       setQrData(upiUrl);
 
-      // Instant 15s verification
       const instantListener = onValue(txnRef, (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -84,9 +99,8 @@ const QRPaymentScreen = () => {
             val.amount === parseFloat(amount) &&
             val.method === "QR" &&
             val.verified === true &&
-            Math.abs(
-              new Date(val.timestamp).getTime() - new Date().getTime()
-            ) < 5 * 60 * 1000
+            Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
+              5 * 60 * 1000
         );
 
         if (match && txnId) {
@@ -94,12 +108,14 @@ const QRPaymentScreen = () => {
           setQrData(null);
           setVendor("");
           setAmount("");
-          Alert.alert("✅ Payment Verified", "The transaction has been verified.");
+          Alert.alert(
+            "✅ Payment Verified",
+            "The transaction has been verified."
+          );
           off(txnRef);
         }
       });
 
-      // Fallback 2-minute check
       setTimeout(() => {
         checkAndVerifyTransaction(txnId, vendor, parseFloat(amount));
       }, 2 * 60 * 1000);
@@ -134,9 +150,8 @@ const QRPaymentScreen = () => {
             val.vendor === vendor &&
             val.amount === amount &&
             val.verified === true &&
-            Math.abs(
-              new Date(val.timestamp).getTime() - new Date().getTime()
-            ) < 5 * 60 * 1000
+            Math.abs(new Date(val.timestamp).getTime() - new Date().getTime()) <
+              5 * 60 * 1000
         );
 
         if (match) {
@@ -165,8 +180,31 @@ const QRPaymentScreen = () => {
       .filter((t) => t.method === "Cash")
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
+  const saveUserUpi = async () => {
+    const user = auth.currentUser;
+    if (!user || !userUpi) {
+      Alert.alert("Error", "Please enter a valid UPI ID");
+      return;
+    }
+
+    await set(ref(rtdb, `users/${user.uid}/userUPI`), userUpi);
+    setSavedUpi(userUpi);
+    Alert.alert("✅ Saved", "Your UPI ID has been saved.");
+  };
+
   return (
     <ScrollView style={styles.container}>
+      <Text style={styles.section}>📌 My UPI ID</Text>
+      <TextInput
+        style={styles.input}
+        value={userUpi}
+        onChangeText={setUserUpi}
+        placeholder="example@upi"
+      />
+      <TouchableOpacity style={styles.qrBtn} onPress={saveUserUpi}>
+        <Text style={styles.btnText}>Save My UPI ID</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>⚡ Quick Payment</Text>
       <Text style={styles.subtitle}>Enter vendor name & payment method</Text>
 
@@ -256,12 +294,14 @@ const styles = StyleSheet.create({
     flex: 0.48,
     padding: 12,
     borderRadius: 6,
+    marginBottom: 10,
   },
   cashBtn: {
     backgroundColor: "#4caf50",
     flex: 0.48,
     padding: 12,
     borderRadius: 6,
+    marginBottom: 10,
   },
   btnText: { color: "#fff", textAlign: "center", fontWeight: "600" },
   section: { fontSize: 16, fontWeight: "bold", marginVertical: 10 },

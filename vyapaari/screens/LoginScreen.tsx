@@ -1,44 +1,34 @@
-// screens/LoginScreen.tsx
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { rtdb } from "../config/firebase";
-import { ref, get } from "firebase/database";
+import { auth } from "../config/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import Toast from "react-native-toast-message";
-import bcrypt from "bcryptjs";
 
 const LoginScreen = ({ navigation }: any) => {
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    if (!phone || !password) {
+    if (!email || !password) {
       Toast.show({ type: "error", text1: "Please fill all fields" });
       return;
     }
 
     try {
-      const phoneRef = ref(rtdb, `users/${phone}`);
-      const snapshot = await get(phoneRef);
-
-      if (!snapshot.exists()) {
-        Toast.show({ type: "error", text1: "User not found" });
-        return;
-      }
-
-      const userData = snapshot.val();
-
-      const isPasswordCorrect = bcrypt.compareSync(password, userData.password);
-
-      if (!isPasswordCorrect) {
-        Toast.show({ type: "error", text1: "Incorrect password" });
-        return;
-      }
-
+      await signInWithEmailAndPassword(auth, email, password);
       Toast.show({ type: "success", text1: "Login successful!" });
       navigation.replace("MainApp");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      Toast.show({ type: "error", text1: "Login failed. Try again." });
+      let msg = "Login failed.";
+      if (error.code === "auth/user-not-found") {
+        msg = "User not found";
+      } else if (error.code === "auth/wrong-password") {
+        msg = "Incorrect password";
+      } else if (error.code === "auth/invalid-email") {
+        msg = "Invalid email";
+      }
+      Toast.show({ type: "error", text1: msg });
     }
   };
 
@@ -48,11 +38,11 @@ const LoginScreen = ({ navigation }: any) => {
 
       <TextInput
         style={styles.input}
-        placeholder="Phone Number"
-        keyboardType="number-pad"
-        maxLength={10}
-        value={phone}
-        onChangeText={setPhone}
+        placeholder="Email Address"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
       />
 
       <TextInput

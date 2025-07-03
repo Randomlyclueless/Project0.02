@@ -8,7 +8,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { auth, rtdb } from "../config/firebase";
@@ -41,6 +40,14 @@ const AuthScreens = ({ navigation }: any) => {
       return;
     }
 
+    if (!upiId.includes("@")) {
+      Toast.show({
+        type: "error",
+        text1: "Enter a valid UPI ID (e.g. name@bank)",
+      });
+      return;
+    }
+
     if (password.length < 6) {
       Toast.show({
         type: "error",
@@ -62,20 +69,30 @@ const AuthScreens = ({ navigation }: any) => {
       );
       const uid = userCredential.user.uid;
 
-      await set(ref(rtdb, `users/${uid}`), {
+      const userData = {
         uid,
         name,
         email,
         business,
         upiId,
         createdAt: new Date().toISOString(),
-      });
+      };
+
+      await set(ref(rtdb, `users/${uid}`), userData);
 
       Toast.show({ type: "success", text1: "🎉 Signed up successfully!" });
       navigation.replace("MainApp");
     } catch (err: any) {
       console.error("Signup error:", err);
-      Toast.show({ type: "error", text1: err.message || "Signup failed" });
+      let message = "Signup failed";
+      if (err.code === "auth/email-already-in-use") {
+        message = "This email is already in use.";
+      } else if (err.code === "auth/invalid-email") {
+        message = "Invalid email address.";
+      } else if (err.code === "auth/weak-password") {
+        message = "Weak password. Try a stronger one.";
+      }
+      Toast.show({ type: "error", text1: message });
     }
   };
 
