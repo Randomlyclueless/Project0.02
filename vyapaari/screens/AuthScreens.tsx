@@ -23,14 +23,7 @@ const AuthScreens = ({ navigation }: any) => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleSignup = async () => {
-    if (
-      !name ||
-      !email ||
-      !business ||
-      !upiId ||
-      !password ||
-      !confirmPassword
-    ) {
+    if (!name || !email || !business || !upiId || !password || !confirmPassword) {
       Toast.show({ type: "error", text1: "Please fill all fields" });
       return;
     }
@@ -41,18 +34,12 @@ const AuthScreens = ({ navigation }: any) => {
     }
 
     if (!upiId.includes("@")) {
-      Toast.show({
-        type: "error",
-        text1: "Enter a valid UPI ID (e.g. name@bank)",
-      });
+      Toast.show({ type: "error", text1: "Enter a valid UPI ID (e.g. name@bank)" });
       return;
     }
 
     if (password.length < 6) {
-      Toast.show({
-        type: "error",
-        text1: "Password must be at least 6 characters",
-      });
+      Toast.show({ type: "error", text1: "Password must be at least 6 characters" });
       return;
     }
 
@@ -62,23 +49,21 @@ const AuthScreens = ({ navigation }: any) => {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      const userData = {
+      // Save profile data
+      await set(ref(rtdb, `users/${uid}`), {
         uid,
         name,
         email,
         business,
         upiId,
         createdAt: new Date().toISOString(),
-      };
+      });
 
-      await set(ref(rtdb, `users/${uid}`), userData);
+      // Save UPI separately for QR Payment auto-use
+      await set(ref(rtdb, `users/${uid}/userUPI`), upiId);
 
       Toast.show({ type: "success", text1: "🎉 Signed up successfully!" });
       navigation.replace("MainApp");
@@ -100,46 +85,12 @@ const AuthScreens = ({ navigation }: any) => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>📋 Create your Vyapaari account</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email Address"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Business Name"
-        value={business}
-        onChangeText={setBusiness}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="UPI ID"
-        value={upiId}
-        onChangeText={setUpiId}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
+      <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Email Address" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+      <TextInput style={styles.input} placeholder="Business Name" value={business} onChangeText={setBusiness} />
+      <TextInput style={styles.input} placeholder="UPI ID" value={upiId} onChangeText={setUpiId} />
+      <TextInput style={styles.input} placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+      <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
 
       <Pressable style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
