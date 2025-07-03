@@ -1,40 +1,44 @@
-import React from "react";
+// screens/DashboardScreen.tsx
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
-import { VictoryChart, VictoryLine, VictoryAxis, VictoryTheme } from "victory"; // Import from 'victory'
+import { VictoryChart, VictoryLine, VictoryAxis, VictoryTheme } from "victory";
+import { ref, onValue, off } from "firebase/database";
+import { rtdb } from "../config/firebase";
 import FloatingVyomButton from "../components/FloatingVyomButton";
 import LanguageSelector from "../components/LanguageSelector";
 import { useTranslation } from "react-i18next";
 
-const transactions = [
-  {
-    id: "1",
-    customer: "Amit",
-    amount: 200,
-    date: "2025-06-19",
-    time: "10:30 AM",
-    status: "paid",
-  },
-  {
-    id: "2",
-    customer: "Neha",
-    amount: 150,
-    date: "2025-06-19",
-    time: "11:45 AM",
-    status: "pending",
-  },
-  {
-    id: "3",
-    customer: "Ravi",
-    amount: 100,
-    date: "2025-06-18",
-    time: "03:20 PM",
-    status: "paid",
-  },
-];
-
 const DashboardScreen = () => {
   const { t } = useTranslation();
-  const today = "2025-06-19";
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    const txnRef = ref(rtdb, "transactions");
+
+    const unsubscribe = onValue(txnRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const txnList = Object.entries(data).map(([id, txn]: any) => ({
+          id,
+          customer: txn.vendor,
+          amount: txn.amount,
+          date: txn.timestamp.split("T")[0],
+          time: new Date(txn.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          status:
+            txn.method === "QR" ? (txn.verified ? "paid" : "pending") : "paid",
+        }));
+        setTransactions(txnList.reverse());
+      } else {
+        setTransactions([]);
+      }
+    });
+
+    return () => off(txnRef);
+  }, []);
 
   const totalToday = transactions
     .filter((t) => t.date === today && t.status === "paid")
@@ -46,7 +50,7 @@ const DashboardScreen = () => {
 
   const pendingPayments = transactions.filter((t) => t.status === "pending");
 
-  // Data for the VictoryLine chart
+  // Chart is static for now (replace with dynamic aggregation if needed)
   const chartData = [
     { x: "Mon", y: 100 },
     { x: "Tue", y: 200 },
@@ -61,7 +65,6 @@ const DashboardScreen = () => {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
         <LanguageSelector />
-
         <Text style={styles.header}>👋 {t("greeting")}</Text>
 
         <View style={styles.cardContainer}>
@@ -97,32 +100,22 @@ const DashboardScreen = () => {
             }}
           />
           <VictoryAxis
-            dependentAxis
-            style={{
-              axis: { stroke: "#333" },
-              tickLabels: { fill: "#333", fontSize: 12 },
-              ticks: { stroke: "#333" },
-            }}
-            tickFormat={(t) => `₹${t}`}
+          dependentAxis
+          style={{axis: { stroke: "#333" },
+          tickLabels: { fill: "#333", fontSize: 12 },
+          ticks: { stroke: "#333" },}}
+          tickFormat={(t) => `₹${t}`}
           />
+
           <VictoryLine
             data={chartData}
-            style={{
-              data: {
-                stroke: "#27ae60",
-                strokeWidth: 2,
-              },
-            }}
+            style={{ data: { stroke: "#27ae60", strokeWidth: 2 } }}
             interpolation="monotoneX"
-            animate={{
-              duration: 1000,
-              onLoad: { duration: 500 },
-            }}
+            animate={{ duration: 1000, onLoad: { duration: 500 } }}
           />
         </VictoryChart>
 
         <Text style={styles.sectionTitle}>🧾 {t("recent_transactions")}</Text>
-
         <View>
           {transactions.slice(0, 5).map((item) => (
             <View key={item.id} style={styles.transactionItem}>
