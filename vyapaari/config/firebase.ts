@@ -6,7 +6,7 @@ import { getDatabase } from "firebase/database";
 const firebaseConfig = {
   apiKey: "AIzaSyAlMQ-CUk_uM-5BtMkmkvhjiQxiCeSJI3Y",
   authDomain: "vyapaari-e9ba1.firebaseapp.com",
-  databaseURL: "https://vyapaari-e9ba1-default-rtdb.firebaseio.com",
+  databaseURL: "https://vyapaari-e9ba1-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "vyapaari-e9ba1",
   storageBucket: "vyapaari-e9ba1.appspot.com",
   messagingSenderId: "483367120647",
