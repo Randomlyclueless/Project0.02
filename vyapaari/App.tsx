@@ -6,19 +6,16 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Toast from "react-native-toast-message";
 
 // Screens
-import AuthScreens from "./screens/AuthScreens"; // 🔁 Signup screen
-import LoginScreen from "./screens/LoginScreen"; // ✅ Login screen
+import AuthScreens from "./screens/AuthScreens";
+import LoginScreen from "./screens/LoginScreen";
 import DashboardScreen from "./screens/DashboardScreen";
-<<<<<<< Updated upstream
-=======
-// import TransactionsScreen from "./screens/TransactionsScreen"; ❌ removed
->>>>>>> Stashed changes
 import QRPaymentScreen from "./screens/QRPaymentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import VyomScreen from "./screens/VyomScreen";
 import ClientsScreen from "./screens/ClientsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import LoanReportScreen from "./screens/LoanReportScreen";
+// 🚫 ToDoScreen import is removed
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -30,15 +27,12 @@ function DrawerNavigator() {
       screenOptions={{ headerShown: true }}
     >
       <Drawer.Screen name="Hii Vyapaari" component={DashboardScreen} />
-<<<<<<< Updated upstream
-=======
-      {/* <Drawer.Screen name="Transactions" component={TransactionsScreen} /> ❌ removed */}
->>>>>>> Stashed changes
       <Drawer.Screen name="QR Code" component={QRPaymentScreen} />
       <Drawer.Screen name="Analytics" component={AnalyticsScreen} />
       <Drawer.Screen name="Vyom Assistant" component={VyomScreen} />
       <Drawer.Screen name="Client Book" component={ClientsScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />
+      {/* 🚫 ToDo List screen removed */}
     </Drawer.Navigator>
   );
 }
