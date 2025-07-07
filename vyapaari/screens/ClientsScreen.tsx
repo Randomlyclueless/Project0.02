@@ -12,14 +12,15 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
-import { onValue, remove, update } from "firebase/database";
+import { onValue, remove, update, ref, push, set } from "firebase/database";
 import { rtdb } from "../config/firebase";
 import { Client } from "../config/clientTypes";
 import LanguageSelector from "../components/LanguageSelector";
-import { getDatabase, ref, push, set } from "firebase/database";
+import { translateText } from "../utils/translateUtils";
+
 const ClientScreen = () => {
-  const { t } = useTranslation();
-  const navigation = useNavigation();
+  const { t, i18n } = useTranslation();
+  const [translations, setTranslations] = useState<any>({});
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "totalSpent">("name");
@@ -27,31 +28,56 @@ const ClientScreen = () => {
   const [newClient, setNewClient] = useState({ name: "", contact: "" });
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
+  const tr = (key: string) => translations[key] || t(key) || key;
+
+  useEffect(() => {
+    const loadTranslations = async () => {
+      const lang = i18n.language;
+      if (lang === "en") return;
+
+      const keys = [
+        "clients", "search_clients", "sort_by", "name", "total_spent",
+        "last_transaction", "contact", "edit", "delete",
+        "edit_client", "add_client", "client_name", "cancel", "save",
+        "confirm", "delete_client_question", "No history available.",
+        "'s History"
+      ];
+      const result: Record<string, string> = {};
+      for (const k of keys) {
+        try {
+          result[k] = await translateText(k, lang);
+        } catch {
+          result[k] = k;
+        }
+      }
+      setTranslations(result);
+    };
+
+    loadTranslations();
+  }, [i18n.language]);
+
   useEffect(() => {
     const clientsRef = ref(rtdb, "clients");
     const unsubscribe = onValue(clientsRef, (snapshot) => {
       const data = snapshot.val() || {};
       const loadedClients: Client[] = Object.entries(data).map(
-        ([id, client]: any) => ({
-          id,
-          ...client,
-        })
+        ([id, client]: any) => ({ id, ...client })
       );
       setClients(loadedClients);
     });
-
     return () => unsubscribe();
   }, []);
 
   const filteredClients = useMemo(() => {
-    let result = clients.filter((client) =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return result.sort((a, b) =>
-      sortBy === "name"
-        ? a.name.localeCompare(b.name)
-        : b.totalSpent - a.totalSpent
-    );
+    return clients
+      .filter((client) =>
+        client.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) =>
+        sortBy === "name"
+          ? a.name.localeCompare(b.name)
+          : b.totalSpent - a.totalSpent
+      );
   }, [clients, searchQuery, sortBy]);
 
   const handleSaveClient = () => {
@@ -80,10 +106,10 @@ const ClientScreen = () => {
   };
 
   const handleDeleteClient = (id: string) => {
-    Alert.alert(t("confirm"), t("delete_client_question"), [
-      { text: t("cancel"), style: "cancel" },
+    Alert.alert(tr("confirm"), tr("delete_client_question"), [
+      { text: tr("cancel"), style: "cancel" },
       {
-        text: t("delete"),
+        text: tr("delete"),
         style: "destructive",
         onPress: () => {
           const clientRef = ref(rtdb, `clients/${id}`);
@@ -101,12 +127,15 @@ const ClientScreen = () => {
 
   const handleClientPress = (client: Client) => {
     Alert.alert(
-      `${client.name}'s History`,
+      `${client.name} ${tr("'s History")}`,
       client.history?.length
         ? client.history
-            .map((h) => `${h.date}: ₹${h.amount} - ${h.description}`)
+            .map(
+              (h) =>
+                `${h.date}: ₹${h.amount} - ${h.description || "..."}`
+            )
             .join("\n")
-        : "No history available."
+        : tr("No history available.")
     );
   };
 
@@ -114,61 +143,52 @@ const ClientScreen = () => {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <LanguageSelector />
-        <Text style={styles.header}>👥 {t("clients")}</Text>
+        <Text style={styles.header}>👥 {tr("clients")}</Text>
 
         <TextInput
           style={styles.searchInput}
-          placeholder={t("search_clients")}
+          placeholder={tr("search_clients")}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
 
         <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>{t("sort_by")}</Text>
+          <Text style={styles.sortLabel}>{tr("sort_by")}</Text>
           <TouchableOpacity
-            style={[
-              styles.sortButton,
-              sortBy === "name" && styles.sortButtonActive,
-            ]}
+            style={[styles.sortButton, sortBy === "name" && styles.sortButtonActive]}
             onPress={() => setSortBy("name")}
           >
-            <Text style={styles.sortButtonText}>{t("name")}</Text>
+            <Text style={styles.sortButtonText}>{tr("name")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.sortButton,
-              sortBy === "totalSpent" && styles.sortButtonActive,
-            ]}
+            style={[styles.sortButton, sortBy === "totalSpent" && styles.sortButtonActive]}
             onPress={() => setSortBy("totalSpent")}
           >
-            <Text style={styles.sortButtonText}>{t("total_spent")}</Text>
+            <Text style={styles.sortButtonText}>{tr("total_spent")}</Text>
           </TouchableOpacity>
         </View>
 
         {filteredClients.map((item) => (
           <View style={styles.clientBox} key={item.id}>
-            <TouchableOpacity
-              onPress={() => handleClientPress(item)}
-              style={{ flex: 1 }}
-            >
+            <TouchableOpacity onPress={() => handleClientPress(item)} style={{ flex: 1 }}>
               <Text style={styles.clientName}>{item.name}</Text>
               <Text style={styles.clientDetail}>
-                {t("total_spent")}: ₹{item.totalSpent}
+                {tr("total_spent")}: ₹{item.totalSpent}
               </Text>
               <Text style={styles.clientDetail}>
-                {t("last_transaction")}: {item.lastTransaction}
+                {tr("last_transaction")}: {item.lastTransaction}
               </Text>
               <Text style={styles.clientDetail}>
-                {t("contact")}: {item.contact}
+                {tr("contact")}: {item.contact}
               </Text>
             </TouchableOpacity>
             <View style={styles.clientActions}>
               <TouchableOpacity onPress={() => handleEditClient(item)}>
-                <Text style={styles.actionText}>{t("edit")}</Text>
+                <Text style={styles.actionText}>{tr("edit")}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDeleteClient(item.id)}>
                 <Text style={[styles.actionText, { color: "red" }]}>
-                  {t("delete")}
+                  {tr("delete")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -176,7 +196,7 @@ const ClientScreen = () => {
         ))}
       </ScrollView>
 
-      {/* ➕ Floating Button to Add New Client */}
+      {/* ➕ Floating Add Button */}
       <TouchableOpacity
         style={styles.floatingButton}
         onPress={() => {
@@ -188,28 +208,24 @@ const ClientScreen = () => {
         <Text style={styles.floatingButtonText}>＋</Text>
       </TouchableOpacity>
 
-      {/* ➕ Add / Edit Modal */}
+      {/* Modal for Add/Edit */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {editingClient ? t("edit_client") : t("add_client")}
+              {editingClient ? tr("edit_client") : tr("add_client")}
             </Text>
             <TextInput
               style={styles.modalInput}
-              placeholder={t("client_name")}
+              placeholder={tr("client_name")}
               value={newClient.name}
-              onChangeText={(text) =>
-                setNewClient({ ...newClient, name: text })
-              }
+              onChangeText={(text) => setNewClient({ ...newClient, name: text })}
             />
             <TextInput
               style={styles.modalInput}
-              placeholder={t("contact")}
+              placeholder={tr("contact")}
               value={newClient.contact}
-              onChangeText={(text) =>
-                setNewClient({ ...newClient, contact: text })
-              }
+              onChangeText={(text) => setNewClient({ ...newClient, contact: text })}
               keyboardType="phone-pad"
             />
             <View style={styles.modalButtons}>
@@ -217,13 +233,13 @@ const ClientScreen = () => {
                 style={styles.modalButton}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
+                <Text style={styles.modalButtonText}>{tr("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSave]}
                 onPress={handleSaveClient}
               >
-                <Text style={styles.modalButtonText}>{t("save")}</Text>
+                <Text style={styles.modalButtonText}>{tr("save")}</Text>
               </TouchableOpacity>
             </View>
           </View>
