@@ -1,4 +1,3 @@
-// screens/QRPaymentScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -23,14 +22,50 @@ import {
 } from "firebase/database";
 import QRCode from "react-native-qrcode-svg";
 import Toast from "react-native-toast-message";
+import { useTranslation } from "react-i18next";
+import { translateText } from "../utils/translateUtils";
 
 const QRPaymentScreen = () => {
+  const { t, i18n } = useTranslation();
+  const [translations, setTranslations] = useState<any>({});
   const [qrData, setQrData] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userUpi, setUserUpi] = useState("");
   const [savedUpi, setSavedUpi] = useState("");
   const [amount, setAmount] = useState("");
   const [cashVendor, setCashVendor] = useState("");
+
+  const tr = (key: string) => translations[key] || t(key) || key;
+
+  useEffect(() => {
+    const fetchTranslations = async () => {
+      const lang = i18n.language;
+      if (lang === "en") return;
+
+      const keys = [
+        "📌 Your UPI QR",
+        "Generate QR",
+        "💵 Cash Payment",
+        "Customer Name",
+        "Amount",
+        "Add Cash Payment",
+        "🧾 Live Transactions",
+        "User",
+        "via",
+        "Unverified",
+        "Cash payment added",
+        "Payment verified",
+      ];
+
+      const results: any = {};
+      for (const key of keys) {
+        results[key] = await translateText(key, lang);
+      }
+      setTranslations(results);
+    };
+
+    fetchTranslations();
+  }, [i18n.language]);
 
   useEffect(() => {
     const txnRef = ref(rtdb, "transactions");
@@ -84,7 +119,6 @@ const QRPaymentScreen = () => {
     const upiUrl = `upi://pay?pa=${savedUpi}&pn=Vyapaari&am=&cu=INR`;
     setQrData(upiUrl);
 
-    // Listen for verified match
     const listener = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
@@ -107,7 +141,7 @@ const QRPaymentScreen = () => {
           verified: true,
         });
         setQrData(null);
-        Toast.show({ type: "success", text1: "Payment verified" });
+        Toast.show({ type: "success", text1: tr("Payment verified") });
         off(txnRef);
       }
     });
@@ -134,14 +168,14 @@ const QRPaymentScreen = () => {
     await push(txnRef, txn);
     setCashVendor("");
     setAmount("");
-    Toast.show({ type: "success", text1: "Cash payment added" });
+    Toast.show({ type: "success", text1: tr("Cash payment added") });
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.section}>📌 Your UPI QR</Text>
+      <Text style={styles.section}>{tr("📌 Your UPI QR")}</Text>
       <TouchableOpacity style={styles.qrBtn} onPress={generateQR}>
-        <Text style={styles.btnText}>Generate QR</Text>
+        <Text style={styles.btnText}>{tr("Generate QR")}</Text>
       </TouchableOpacity>
       {qrData && (
         <View style={{ alignItems: "center", marginVertical: 20 }}>
@@ -149,30 +183,30 @@ const QRPaymentScreen = () => {
         </View>
       )}
 
-      <Text style={styles.section}>💵 Cash Payment</Text>
+      <Text style={styles.section}>{tr("💵 Cash Payment")}</Text>
       <TextInput
         style={styles.input}
         value={cashVendor}
         onChangeText={setCashVendor}
-        placeholder="Customer Name"
+        placeholder={tr("Customer Name")}
       />
       <TextInput
         style={styles.input}
         value={amount}
         onChangeText={setAmount}
         keyboardType="numeric"
-        placeholder="Amount"
+        placeholder={tr("Amount")}
       />
       <TouchableOpacity style={styles.cashBtn} onPress={handleCashPayment}>
-        <Text style={styles.btnText}>Add Cash Payment</Text>
+        <Text style={styles.btnText}>{tr("Add Cash Payment")}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.section}>🧾 Live Transactions</Text>
+      <Text style={styles.section}>{tr("🧾 Live Transactions")}</Text>
       {transactions.map((t, i) => (
         <View key={i} style={styles.txn}>
           <Text>
-            {t.vendor || "User"} - ₹{t.amount || "--"} via {t.method} {" "}
-            {t.method === "QR" && (t.verified ? "✅" : "⚠ Unverified")}
+            {t.vendor || tr("User")} - ₹{t.amount || "--"} {tr("via")} {t.method}{" "}
+            {t.method === "QR" && (t.verified ? "✅" : `⚠ ${tr("Unverified")}`)}
           </Text>
           <Text style={styles.timestamp}>
             {new Date(t.timestamp).toLocaleString()}
@@ -182,6 +216,8 @@ const QRPaymentScreen = () => {
     </ScrollView>
   );
 };
+
+export default QRPaymentScreen;
 
 const styles = StyleSheet.create({
   container: { padding: 20 },
@@ -213,5 +249,3 @@ const styles = StyleSheet.create({
   },
   timestamp: { fontSize: 12, color: "#888" },
 });
-
-export default QRPaymentScreen;
