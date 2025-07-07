@@ -1,4 +1,3 @@
-// screens/DashboardScreen.tsx
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
 import { VictoryChart, VictoryLine, VictoryAxis, VictoryTheme } from "victory";
@@ -7,15 +6,16 @@ import { rtdb } from "../config/firebase";
 import FloatingVyomButton from "../components/FloatingVyomButton";
 import LanguageSelector from "../components/LanguageSelector";
 import { useTranslation } from "react-i18next";
+import { translateText } from "../utils/translateUtils";
 
 const DashboardScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [translations, setTranslations] = useState<Record<string, string>>({});
   const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     const txnRef = ref(rtdb, "transactions");
-
     const unsubscribe = onValue(txnRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -40,6 +40,36 @@ const DashboardScreen = () => {
     return () => off(txnRef);
   }, []);
 
+  useEffect(() => {
+    const fetchDynamicTranslations = async () => {
+      const lang = i18n.language;
+      if (lang === "en") return;
+ // already covered in resource bundles
+
+      const keysToTranslate = [
+        "Welcome back!",
+        "Today's Income",
+        "Total Income",
+        "Pending Payments",
+        "Total Transactions",
+        "Earnings Overview",
+        "Recent Transactions",
+        "paid",
+        "pending",
+      ];
+
+      const result: Record<string, string> = {};
+      for (const key of keysToTranslate) {
+        result[key] = await translateText(key, lang);
+      }
+      setTranslations(result);
+    };
+
+    fetchDynamicTranslations();
+  }, [i18n.language]);
+
+  const tr = (key: string) => translations[key] || t(key) || key;
+
   const totalToday = transactions
     .filter((t) => t.date === today && t.status === "paid")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -50,7 +80,6 @@ const DashboardScreen = () => {
 
   const pendingPayments = transactions.filter((t) => t.status === "pending");
 
-  // Chart is static for now (replace with dynamic aggregation if needed)
   const chartData = [
     { x: "Mon", y: 100 },
     { x: "Tue", y: 200 },
@@ -65,28 +94,28 @@ const DashboardScreen = () => {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
         <LanguageSelector />
-        <Text style={styles.header}>👋 {t("greeting")}</Text>
+        <Text style={styles.header}>👋 {tr("Welcome back!")}</Text>
 
         <View style={styles.cardContainer}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("todays_income")}</Text>
+            <Text style={styles.cardTitle}>{tr("Today's Income")}</Text>
             <Text style={styles.cardValue}>₹{totalToday}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("total_income")}</Text>
+            <Text style={styles.cardTitle}>{tr("Total Income")}</Text>
             <Text style={styles.cardValue}>₹{totalIncome}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("pending_payments")}</Text>
+            <Text style={styles.cardTitle}>{tr("Pending Payments")}</Text>
             <Text style={styles.cardValue}>{pendingPayments.length}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("total_transactions")}</Text>
+            <Text style={styles.cardTitle}>{tr("Total Transactions")}</Text>
             <Text style={styles.cardValue}>{transactions.length}</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>📈 {t("earnings_overview")}</Text>
+        <Text style={styles.sectionTitle}>📈 {tr("Earnings Overview")}</Text>
         <VictoryChart
           width={Dimensions.get("window").width - 40}
           height={220}
@@ -100,13 +129,14 @@ const DashboardScreen = () => {
             }}
           />
           <VictoryAxis
-          dependentAxis
-          style={{axis: { stroke: "#333" },
-          tickLabels: { fill: "#333", fontSize: 12 },
-          ticks: { stroke: "#333" },}}
-          tickFormat={(t) => `₹${t}`}
+            dependentAxis
+            style={{
+              axis: { stroke: "#333" },
+              tickLabels: { fill: "#333", fontSize: 12 },
+              ticks: { stroke: "#333" },
+            }}
+            tickFormat={(t) => `₹${t}`}
           />
-
           <VictoryLine
             data={chartData}
             style={{ data: { stroke: "#27ae60", strokeWidth: 2 } }}
@@ -115,19 +145,18 @@ const DashboardScreen = () => {
           />
         </VictoryChart>
 
-        <Text style={styles.sectionTitle}>🧾 {t("recent_transactions")}</Text>
+        <Text style={styles.sectionTitle}>🧾 {tr("Recent Transactions")}</Text>
         <View>
           {transactions.slice(0, 5).map((item) => (
             <View key={item.id} style={styles.transactionItem}>
               <Text style={styles.transactionText}>
-                • {item.customer} {t("paid")} ₹{item.amount} ({t(item.status)})
+                • {item.customer} {tr("paid")} ₹{item.amount} ({tr(item.status)})
               </Text>
               <Text style={styles.transactionTime}>{item.time}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
-
       <FloatingVyomButton />
     </View>
   );
@@ -172,9 +201,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 20,
     marginBottom: 10,
-  },
-  chart: {
-    borderRadius: 10,
   },
   transactionItem: {
     paddingVertical: 10,
