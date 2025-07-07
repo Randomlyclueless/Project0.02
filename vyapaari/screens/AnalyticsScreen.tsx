@@ -12,12 +12,18 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LineChart, PieChart } from "react-native-chart-kit";
 import { rtdb } from "../config/firebase";
 import { ref, onValue } from "firebase/database";
+import { useTranslation } from "react-i18next";
+import { translateText } from "../utils/translateUtils";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function AnalyticsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [translations, setTranslations] = useState<any>({});
+
+  const tr = (key: string) => translations[key] || t(key) || key;
 
   useEffect(() => {
     const txnRef = ref(rtdb, "transactions");
@@ -31,8 +37,42 @@ export default function AnalyticsScreen() {
       }
     });
 
-    return () => unsubscribe(); // 🔁 Clean listener on unmount
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const loadTranslations = async () => {
+      const lang = i18n.language;
+      if (lang === "en") return;
+
+
+      const keys = [
+        "Analytics Dashboard",
+        "Back",
+        "No transactions today",
+        "Total Revenue",
+        "Transactions",
+        "QR Split",
+        "Cash Split",
+        "Avg. Daily Income",
+        "Peak Hour",
+        "Repeat Buyers",
+        "Fraud Detection",
+        "No fraud",
+        "Income Over 7 Days",
+        "QR vs Cash",
+        "View Loan Report",
+      ];
+
+      const dynamicTranslations: any = {};
+      for (const key of keys) {
+        dynamicTranslations[key] = await translateText(key, lang);
+      }
+      setTranslations(dynamicTranslations);
+    };
+
+    loadTranslations();
+  }, [i18n.language]);
 
   const today = new Date().toDateString();
   const todayTxns = transactions.filter(
@@ -96,56 +136,55 @@ export default function AnalyticsScreen() {
   return (
     <ScrollView style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>⬅️ Back</Text>
+        <Text style={styles.back}>⬅️ {tr("Back")}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.header}>📊 Analytics Dashboard</Text>
+      <Text style={styles.header}>📊 {tr("Analytics Dashboard")}</Text>
 
       {todayTxns.length === 0 && (
-        <Text style={styles.noData}>No transactions recorded today.</Text>
+        <Text style={styles.noData}>{tr("No transactions today")}</Text>
       )}
 
       <View style={styles.cardRow}>
         <View style={styles.card}>
-          <Text style={styles.title}>Total Revenue</Text>
+          <Text style={styles.title}>{tr("Total Revenue")}</Text>
           <Text style={styles.value}>₹{Number(totalRevenue).toFixed(2)}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.title}>Transactions</Text>
+          <Text style={styles.title}>{tr("Transactions")}</Text>
           <Text style={styles.value}>{todayTxns.length}</Text>
         </View>
       </View>
 
       <View style={styles.cardRow}>
         <View style={styles.card}>
-          <Text style={styles.title}>QR Split</Text>
+          <Text style={styles.title}>{tr("QR Split")}</Text>
           <Text style={styles.value}>QR: {qrPercent}%</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.title}>Cash Split</Text>
+          <Text style={styles.title}>{tr("Cash Split")}</Text>
           <Text style={styles.value}>Cash: {cashPercent}%</Text>
         </View>
       </View>
 
       <View style={styles.cardRow}>
         <View style={styles.card}>
-          <Text style={styles.title}>Avg. Daily</Text>
+          <Text style={styles.title}>{tr("Avg. Daily Income")}</Text>
           <Text style={styles.value}>₹{avgDailyIncome.toFixed(2)}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.title}>Peak Hour</Text>
+          <Text style={styles.title}>{tr("Peak Hour")}</Text>
           <Text style={styles.value}>{peakHour}:00</Text>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.title}>Repeat Buyers</Text>
+        <Text style={styles.title}>{tr("Repeat Buyers")}</Text>
         <Text style={styles.value}>{repeatBuyers.size}</Text>
       </View>
 
-      {/* 🚨 Fraud Detection */}
       <View style={styles.fraudBox}>
-        <Text style={styles.fraudHeader}>🚨 Fraud Detection</Text>
+        <Text style={styles.fraudHeader}>🚨 {tr("Fraud Detection")}</Text>
         {frauds.length > 0 ? (
           frauds.map((f, i) => (
             <View key={i} style={styles.fraudItem}>
@@ -158,14 +197,11 @@ export default function AnalyticsScreen() {
             </View>
           ))
         ) : (
-          <Text style={styles.noFraud}>
-            ✅ No unverified QR payments today.
-          </Text>
+          <Text style={styles.noFraud}>✅ {tr("No fraud")}</Text>
         )}
       </View>
 
-      {/* 📈 7-Day Line Chart */}
-      <Text style={styles.chartTitle}>📈 Income Over 7 Days</Text>
+      <Text style={styles.chartTitle}>📈 {tr("Income Over 7 Days")}</Text>
       <View style={{ width: screenWidth - 30, alignSelf: "center" }}>
         <LineChart
           data={{
@@ -189,8 +225,7 @@ export default function AnalyticsScreen() {
         />
       </View>
 
-      {/* 💰 QR vs Cash Split Pie Chart */}
-      <Text style={styles.chartTitle}>💰 QR vs Cash</Text>
+      <Text style={styles.chartTitle}>💰 {tr("QR vs Cash")}</Text>
       <View style={{ width: screenWidth - 30, alignSelf: "center" }}>
         <PieChart
           data={[
@@ -223,7 +258,7 @@ export default function AnalyticsScreen() {
         style={styles.btn}
         onPress={() => navigation.navigate("LoanReport")}
       >
-        <Text style={styles.btnText}>📤 View Loan Report</Text>
+        <Text style={styles.btnText}>📤 {tr("View Loan Report")}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
