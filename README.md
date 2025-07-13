@@ -34,7 +34,7 @@ Vyapaari isn’t just for small hawkers. It’s also useful for:
 - *Firebase* (Realtime DB + Auth)
 - *i18next + Google Translate API* (for dynamic languages)
 - *ChartKit + Victory* (for charts)
-- *EAS Build* (for Android APK generation)
+
 
 ---
 
