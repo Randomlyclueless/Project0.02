@@ -19,6 +19,7 @@ import VyomScreen from "./screens/VyomScreen";
 import ClientsScreen from "./screens/ClientsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import LoanReportScreen from "./screens/LoanReportScreen";
+import InventoryScreen from "./screens/InventoryScreen";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -55,6 +56,11 @@ function DrawerNavigator() {
         name="Clients"
         component={ClientsScreen}
         options={{ title: t("clients") || "Client Book" }}
+      />
+      <Drawer.Screen
+        name="Inventory"
+        component={InventoryScreen}
+        options={{ title: "Inventory" }}
       />
       <Drawer.Screen
         name="Settings"
