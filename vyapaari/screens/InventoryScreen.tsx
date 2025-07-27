@@ -8,8 +8,12 @@ import {
   StyleSheet,
   Modal,
 } from "react-native";
-import { Card } from "@rneui/themed";
-import { Feather, MaterialIcons, Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import {
+  Feather,
+  MaterialIcons,
+  Ionicons,
+  FontAwesome5,
+} from "@expo/vector-icons";
 
 const InventoryScreen = () => {
   const [inventoryData, setInventoryData] = useState([
@@ -21,9 +25,11 @@ const InventoryScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [newItem, setNewItem] = useState({ name: "", quantity: "", price: "" });
 
-  const lowStockItems = inventoryData.filter(item => item.quantity <= 5);
-
-  const totalInventoryValue = inventoryData.reduce((acc, item) => acc + item.quantity * item.price, 0);
+  const lowStockItems = inventoryData.filter((item) => item.quantity <= 5);
+  const totalInventoryValue = inventoryData.reduce(
+    (acc, item) => acc + item.quantity * item.price,
+    0
+  );
 
   const handleAddItem = () => {
     const id = inventoryData.length + 1;
@@ -44,54 +50,87 @@ const InventoryScreen = () => {
 
       <View style={styles.featureRow}>
         <Feature
-          icon={<Feather name="plus-circle" size={30} color="#007AFF" />} 
+          icon={<Feather name="plus-circle" size={30} color="#007AFF" />}
           label="Add Item"
           onPress={() => setModalVisible(true)}
         />
-        <Feature icon={<MaterialIcons name="update" size={30} color="#FF9500" />} label="Update Stock" />
-        <Feature icon={<Ionicons name="md-remove-circle" size={30} color="#FF3B30" />} label="Remove Item" />
-        <Feature icon={<FontAwesome5 name="filter" size={26} color="#8E8E93" />} label="Filter" />
+        <Feature
+          icon={<MaterialIcons name="update" size={30} color="#FF9500" />}
+          label="Update Stock"
+        />
+        <Feature
+          icon={<Ionicons name="remove-circle" size={30} color="#FF3B30" />}
+          label="Remove Item"
+        />
+        <Feature
+          icon={<FontAwesome5 name="filter" size={26} color="#8E8E93" />}
+          label="Filter"
+        />
       </View>
 
       <View style={styles.featureRow}>
-        <Feature icon={<Feather name="download" size={30} color="#34C759" />} label="Export CSV" />
-        <Feature icon={<Ionicons name="search-circle" size={30} color="#5856D6" />} label="Search" />
-        <Feature icon={<MaterialIcons name="mic" size={30} color="#AF52DE" />} label="Voice Input" />
-        <Feature icon={<Feather name="refresh-cw" size={30} color="#FF2D55" />} label="Auto Sync" />
+        <Feature
+          icon={<Feather name="download" size={30} color="#34C759" />}
+          label="Export CSV"
+        />
+        <Feature
+          icon={<Ionicons name="search-circle" size={30} color="#5856D6" />}
+          label="Search"
+        />
+        <Feature
+          icon={<MaterialIcons name="mic" size={30} color="#AF52DE" />}
+          label="Voice Input"
+        />
+        <Feature
+          icon={<Feather name="refresh-cw" size={30} color="#FF2D55" />}
+          label="Auto Sync"
+        />
       </View>
 
       <View style={styles.featureRow}>
-        <Feature icon={<Feather name="alert-circle" size={30} color="#FF9500" />} label="Low Stock" />
-        <Feature icon={<Ionicons name="md-notifications" size={30} color="#007AFF" />} label="Alerts" />
+        <Feature
+          icon={<Feather name="alert-circle" size={30} color="#FF9500" />}
+          label="Low Stock"
+        />
+        <Feature
+          icon={<Ionicons name="notifications" size={30} color="#007AFF" />}
+          label="Alerts"
+        />
       </View>
 
-      {/* Additional Features */}
-      <Card containerStyle={styles.card}>
+      {/* Inventory Value Summary */}
+      <View style={styles.card}>
         <Text style={styles.featureTitle}>📊 Inventory Value Summary</Text>
-        <Text style={styles.featureText}>Total Inventory Value: ₹{totalInventoryValue}</Text>
-      </Card>
+        <Text style={styles.featureText}>
+          Total Inventory Value: ₹{totalInventoryValue}
+        </Text>
+      </View>
 
-      <Card containerStyle={styles.card}>
+      {/* Low Stock Alerts */}
+      <View style={styles.card}>
         <Text style={styles.featureTitle}>⚠️ Low Stock Alerts</Text>
         {lowStockItems.length > 0 ? (
-          lowStockItems.map(item => (
-            <Text key={item.id} style={{ color: 'red' }}>{item.name} - Only {item.quantity} left</Text>
+          lowStockItems.map((item) => (
+            <Text key={item.id} style={{ color: "red" }}>
+              {item.name} - Only {item.quantity} left
+            </Text>
           ))
         ) : (
-          <Text style={{ color: 'green' }}>All items well stocked</Text>
+          <Text style={{ color: "green" }}>All items well stocked</Text>
         )}
-      </Card>
+      </View>
 
-      <Card containerStyle={styles.card}>
+      {/* Recent Activity */}
+      <View style={styles.card}>
         <Text style={styles.featureTitle}>📜 Recent Activity</Text>
         <Text style={styles.featureText}>+ Added Item C</Text>
         <Text style={styles.featureText}>- Sold Item B</Text>
         <Text style={styles.featureText}>+ Updated Price of Item A</Text>
-      </Card>
+      </View>
 
       <Text style={styles.subHeader}>🧾 All Items</Text>
-      {inventoryData.map(item => (
-        <Card key={item.id} containerStyle={styles.card}>
+      {inventoryData.map((item) => (
+        <View key={item.id} style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.price}>₹{item.price}</Text>
@@ -99,7 +138,7 @@ const InventoryScreen = () => {
           <Text style={item.quantity <= 5 ? styles.lowStock : styles.quantity}>
             Stock: {item.quantity}
           </Text>
-        </Card>
+        </View>
       ))}
 
       {/* Add Item Modal */}
@@ -111,29 +150,37 @@ const InventoryScreen = () => {
             <TextInput
               placeholder="Item Name"
               value={newItem.name}
-              onChangeText={text => setNewItem({ ...newItem, name: text })}
+              onChangeText={(text) => setNewItem({ ...newItem, name: text })}
               style={styles.input}
             />
             <TextInput
               placeholder="Quantity"
               keyboardType="number-pad"
               value={newItem.quantity}
-              onChangeText={text => setNewItem({ ...newItem, quantity: text })}
+              onChangeText={(text) =>
+                setNewItem({ ...newItem, quantity: text })
+              }
               style={styles.input}
             />
             <TextInput
               placeholder="Price"
               keyboardType="decimal-pad"
               value={newItem.price}
-              onChangeText={text => setNewItem({ ...newItem, price: text })}
+              onChangeText={(text) => setNewItem({ ...newItem, price: text })}
               style={styles.input}
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={handleAddItem} style={styles.addButton}>
+              <TouchableOpacity
+                onPress={handleAddItem}
+                style={styles.addButton}
+              >
                 <Text style={styles.addButtonText}>Add</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.cancelButton}
+              >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -144,7 +191,15 @@ const InventoryScreen = () => {
   );
 };
 
-const Feature = ({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress?: () => void }) => (
+const Feature = ({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress?: () => void;
+}) => (
   <TouchableOpacity style={styles.feature} onPress={onPress}>
     {icon}
     <Text style={styles.featureLabel}>{label}</Text>
@@ -199,6 +254,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     padding: 16,
+    backgroundColor: "#fff",
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 6,
